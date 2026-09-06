@@ -1,33 +1,15 @@
 import { createClient } from "genlayer-js";
 import { studionet } from "genlayer-js/chains";
 
-// Deployed on GenLayer Studio
+// Deployed on GenLayer Studio (studio.genlayer.com)
 export const CONTRACT_ADDRESS = "0xEF16CB5F1b8958e83dcaaaADCee20342Ce56ba09";
 
-// Add Studio to the connected wallet if it isn't already configured there.
-// MetaMask (and most injected wallets) support wallet_addEthereumChain.
-// NOTE: Studio is for dev/testing -- its state can reset periodically.
-// Switch back to testnetBradbury (see git history / earlier version of this
-// file) before final hackathon submission for a persistent deployment.
-export async function ensureStudioNetwork() {
-  if (!window.ethereum) throw new Error("No injected wallet found (e.g. MetaMask).");
-  await window.ethereum.request({
-    method: "wallet_addEthereumChain",
-    params: [
-      {
-        chainId: "0xf21f", // 61999 in hex
-        chainName: "GenLayer Studio",
-        nativeCurrency: { name: "GEN", symbol: "GEN", decimals: 18 },
-        rpcUrls: ["https://studio.genlayer.com/api"],
-        blockExplorerUrls: ["https://explorer-studio.genlayer.com"],
-      },
-    ],
-  });
-}
+// NOTE: Studio-only for now. This app is not configured for any testnet
+// (Bradbury/Asimov) until a contract is deployed there and this file is
+// updated on purpose.
 
 export async function connectWallet() {
   if (!window.ethereum) throw new Error("No injected wallet found (e.g. MetaMask).");
-  await ensureStudioNetwork();
   const [account] = await window.ethereum.request({ method: "eth_requestAccounts" });
   return account;
 }
