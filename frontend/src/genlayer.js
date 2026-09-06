@@ -4,26 +4,37 @@ import { studionet } from "genlayer-js/chains";
 // Deployed on GenLayer Studio (studio.genlayer.com)
 export const CONTRACT_ADDRESS = "0xEF16CB5F1b8958e83dcaaaADCee20342Ce56ba09";
 
-const STUDIO_CHAIN_ID_HEX = "0xf21f"; // 61999
-const STUDIO_CHAIN_PARAMS = {
-  chainId: STUDIO_CHAIN_ID_HEX,
-  chainName: "GenLayer Studio",
-  nativeCurrency: { name: "GEN", symbol: "GEN", decimals: 18 },
-  rpcUrls: ["https://studio.genlayer.com/api"],
-  blockExplorerUrls: ["https://explorer-studio.genlayer.com"],
-};
-
 // Make sure the wallet is actively on GenLayer Studio before signing --
 // genlayer-js's client requires the wallet's current chain to match, or
 // write calls fail with "chainId should be same as current chainId".
-// wallet_addEthereumChain switches to the chain if it's already added, and
-// adds+switches if not -- no need for a separate switch-first attempt (mobile
-// wallets are inconsistent about the error code that signals "not added yet").
+// Pull chain id / RPC / explorer straight from genlayer-js's own `studionet`
+// object instead of hardcoding them -- hardcoded values drifted from what
+// the SDK actually uses and caused a chainId/RPC mismatch.
+function toHexChainId(id) {
+  return "0x" + id.toString(16);
+}
+
 export async function ensureStudioNetwork() {
   if (!window.ethereum) throw new Error("No injected wallet found (e.g. MetaMask).");
+  const rpcUrl =
+    studionet.rpcUrls?.default?.http?.[0] ?? studionet.rpcUrls?.[0];
+  const explorerUrl = studionet.blockExplorers?.default?.url;
+
   await window.ethereum.request({
     method: "wallet_addEthereumChain",
-    params: [STUDIO_CHAIN_PARAMS],
+    params: [
+      {
+        chainId: toHexChainId(studionet.id),
+        chainName: studionet.name ?? "GenLayer Studio",
+        nativeCurrency: studionet.nativeCurrency ?? {
+          name: "GEN",
+          symbol: "GEN",
+          decimals: 18,
+        },
+        rpcUrls: [rpcUrl],
+        blockExplorerUrls: explorerUrl ? [explorerUrl] : [],
+      },
+    ],
   });
 }
 
