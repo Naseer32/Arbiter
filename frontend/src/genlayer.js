@@ -1,22 +1,25 @@
 import { createClient } from "genlayer-js";
-import { testnetBradbury } from "genlayer-js/chains";
+import { studionet } from "genlayer-js/chains";
 
-// TODO: replace with the deployed Arbiter contract address on Testnet Bradbury
+// Deployed on GenLayer Studio
 export const CONTRACT_ADDRESS = "0xEF16CB5F1b8958e83dcaaaADCee20342Ce56ba09";
 
-// Add Bradbury to the connected wallet if it isn't already configured there.
+// Add Studio to the connected wallet if it isn't already configured there.
 // MetaMask (and most injected wallets) support wallet_addEthereumChain.
-export async function ensureBradburyNetwork() {
+// NOTE: Studio is for dev/testing -- its state can reset periodically.
+// Switch back to testnetBradbury (see git history / earlier version of this
+// file) before final hackathon submission for a persistent deployment.
+export async function ensureStudioNetwork() {
   if (!window.ethereum) throw new Error("No injected wallet found (e.g. MetaMask).");
   await window.ethereum.request({
     method: "wallet_addEthereumChain",
     params: [
       {
-        chainId: "0x107d", // 4221 in hex
-        chainName: "GenLayer Testnet Bradbury",
+        chainId: "0xf21f", // 61999 in hex
+        chainName: "GenLayer Studio",
         nativeCurrency: { name: "GEN", symbol: "GEN", decimals: 18 },
-        rpcUrls: ["https://rpc-bradbury.genlayer.com"],
-        blockExplorerUrls: ["https://explorer-bradbury.genlayer.com"],
+        rpcUrls: ["https://studio.genlayer.com/api"],
+        blockExplorerUrls: ["https://explorer-studio.genlayer.com"],
       },
     ],
   });
@@ -24,14 +27,14 @@ export async function ensureBradburyNetwork() {
 
 export async function connectWallet() {
   if (!window.ethereum) throw new Error("No injected wallet found (e.g. MetaMask).");
-  await ensureBradburyNetwork();
+  await ensureStudioNetwork();
   const [account] = await window.ethereum.request({ method: "eth_requestAccounts" });
   return account;
 }
 
 export function getClient(account) {
   return createClient({
-    chain: testnetBradbury,
+    chain: studionet,
     account,
   });
 }
