@@ -16,26 +16,15 @@ const STUDIO_CHAIN_PARAMS = {
 // Make sure the wallet is actively on GenLayer Studio before signing --
 // genlayer-js's client requires the wallet's current chain to match, or
 // write calls fail with "chainId should be same as current chainId".
-// Tries a plain switch first (no extra prompt if already added), and only
-// falls back to adding the network if the wallet doesn't recognize it yet.
+// wallet_addEthereumChain switches to the chain if it's already added, and
+// adds+switches if not -- no need for a separate switch-first attempt (mobile
+// wallets are inconsistent about the error code that signals "not added yet").
 export async function ensureStudioNetwork() {
   if (!window.ethereum) throw new Error("No injected wallet found (e.g. MetaMask).");
-  try {
-    await window.ethereum.request({
-      method: "wallet_switchEthereumChain",
-      params: [{ chainId: STUDIO_CHAIN_ID_HEX }],
-    });
-  } catch (switchError) {
-    // 4902 = chain not added to wallet yet
-    if (switchError.code === 4902) {
-      await window.ethereum.request({
-        method: "wallet_addEthereumChain",
-        params: [STUDIO_CHAIN_PARAMS],
-      });
-    } else {
-      throw switchError;
-    }
-  }
+  await window.ethereum.request({
+    method: "wallet_addEthereumChain",
+    params: [STUDIO_CHAIN_PARAMS],
+  });
 }
 
 export async function connectWallet() {
