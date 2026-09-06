@@ -12,7 +12,7 @@ VALID_VERDICTS = {"worker", "requester"}
 
 @allow_storage
 class Job:
-    id: int
+    id: u256
     requester: Address
     worker: Address
     spec: str
@@ -42,7 +42,7 @@ class Arbiter(gl.Contract):
         job_id = len(self.jobs) + 1
         self.jobs.append(
             Job(
-                id=job_id,
+                id=u256(job_id),
                 requester=gl.message.sender_address,
                 worker=worker,
                 spec=spec,
@@ -171,7 +171,7 @@ class Arbiter(gl.Contract):
     def get_job(self, job_id: int) -> dict:
         job = self._get_job(job_id)
         return {
-            "id": job.id,
+            "id": int(job.id),
             "requester": job.requester.as_hex,
             "worker": job.worker.as_hex,
             "spec": job.spec,
