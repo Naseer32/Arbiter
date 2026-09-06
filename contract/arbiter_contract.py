@@ -35,7 +35,7 @@ class Arbiter(gl.Contract):
 
     # ---------- lifecycle ----------
 
-    @gl.public.write
+    @gl.public.write.payable
     def create_job(self, worker: Address, spec: str) -> int:
         """Requester agent posts a job spec and escrows payment (msg.value held by contract).
         Job IDs are 1-based (job #1 is the first job created)."""
