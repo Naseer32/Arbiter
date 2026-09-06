@@ -164,6 +164,7 @@ export default function App() {
 
       <section>
         <h2>3. Requester: Approve or Dispute</h2>
+        <input placeholder="Job ID" value={jobId} onChange={(e) => setJobId(e.target.value)} style={{ width: "100%", marginBottom: 8 }} />
         <button onClick={handleApprove} disabled={!client} style={{ marginRight: 8 }}>Approve (pay worker)</button>
         <div style={{ marginTop: 12 }}>
           <input placeholder="Dispute reason" value={reason} onChange={(e) => setReason(e.target.value)} style={{ width: "100%", marginBottom: 8 }} />
@@ -175,6 +176,7 @@ export default function App() {
 
       <section>
         <h2>Evidence-Unavailable Recovery</h2>
+        <input placeholder="Job ID" value={jobId} onChange={(e) => setJobId(e.target.value)} style={{ width: "100%", marginBottom: 8 }} />
         <button onClick={handleRecover} disabled={!client}>Request Fair Recovery</button>
       </section>
 
@@ -182,6 +184,7 @@ export default function App() {
 
       <section>
         <h2>Abandonment</h2>
+        <input placeholder="Job ID" value={jobId} onChange={(e) => setJobId(e.target.value)} style={{ width: "100%", marginBottom: 8 }} />
         <input placeholder="Abandonment reason" value={abandonReason} onChange={(e) => setAbandonReason(e.target.value)} style={{ width: "100%", marginBottom: 8 }} />
         <button onClick={handleAbandon} disabled={!client}>Claim Abandoned (after grace period)</button>
       </section>
