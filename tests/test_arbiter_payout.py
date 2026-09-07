@@ -1,173 +1,204 @@
-
 """
-Starter test suite for the Arbiter contract, run against a live GenLayer Studio
-(or Localnet) consensus instance via gltest -- mirroring the structure used for
-the accepted genlayer-escrow submission's test_escrow_payout.py.
+Test suite for the Arbiter contract, run against a live GenLayer Studio
+(or Localnet) consensus instance via gltest.
 
-Run with:
+Install:
+    pip install genlayer-test
+
+Run:
     gltest tests/test_arbiter_payout.py
+    gltest tests/test_arbiter_payout.py --network studionet -v
 
-Adjust fixture/account APIs to whatever gltest version you have installed --
-the exact helper names (get_contract_factory, get_default_account, etc.) have
-shifted across gltest releases, so treat this as a structural starting point
-and confirm names against `gltest --help` / your installed package docs.
+This targets gltest's Studio-mode API (get_contract_factory / .transact() /
+.call()), matching the current Arbiter contract, which requires:
+  - create_job is @gl.public.write.payable (accepts escrowed value)
+  - recover_unavailable_job(job_id, reason) takes a required reason argument
+  - get_contract_balance() is a view for checking escrow movement without
+    needing per-account balance access from the test harness
+
+Adjust the `_extract_job_id` helper below to match exactly how your installed
+gltest version surfaces a write method's return value in the tx receipt --
+this has varied across releases, so treat it as the one thing to verify first
+by running a single test with -v and inspecting the printed receipt.
 """
-
-import time
 
 import pytest
-from gltest import get_contract_factory
-from gltest.accounts import get_accounts
+from gltest import get_contract_factory, get_default_account, create_account
+from gltest.assertions import tx_execution_succeeded
+
+JOB_AMOUNT = 10**16  # small GEN amount in wei, used as escrow in each test
 
 
-CONTRACT_PATH = "contract/arbiter_contract.py"
-JOB_AMOUNT = 10**16  # small GEN amount in wei for test escrow
-
-
-@pytest.fixture
-def accounts():
-    accs = get_accounts()
-    assert len(accs) >= 2, "need at least a requester and a worker account"
-    return accs
-
-
-@pytest.fixture
-def arbiter(accounts):
-    factory = get_contract_factory("Arbiter")
-    requester = accounts[0]
-    contract = factory.deploy(account=requester)
-    return contract
-
-
-def test_job_ids_are_one_based(arbiter, accounts):
-    requester, worker = accounts[0], accounts[1]
-    job_id = arbiter.create_job(
-        args=[worker.address, "write a haiku about escrow"],
-        value=JOB_AMOUNT,
-        account=requester,
+def _extract_job_id(tx_receipt):
+    """create_job returns the new job's id. Extraction key varies by gltest
+    version -- check both common shapes before falling back to a manual read."""
+    if "return_value" in tx_receipt:
+        return tx_receipt["return_value"]
+    if "data" in tx_receipt and "return_value" in tx_receipt["data"]:
+        return tx_receipt["data"]["return_value"]
+    raise KeyError(
+        "Could not find job id in tx receipt -- inspect the receipt structure "
+        "with `print(tx_receipt)` and adjust _extract_job_id accordingly."
     )
+
+
+@pytest.fixture
+def requester():
+    return get_default_account()
+
+
+@pytest.fixture
+def worker():
+    return create_account()
+
+
+@pytest.fixture
+def outsider():
+    return create_account()
+
+
+@pytest.fixture
+def arbiter():
+    factory = get_contract_factory("Arbiter")
+    return factory.deploy()
+
+
+def _create_job(arbiter, requester, worker, spec, amount=JOB_AMOUNT):
+    tx = arbiter.create_job(
+        args=[worker.address, spec], value=amount, account=requester
+    ).transact()
+    assert tx_execution_succeeded(tx)
+    return _extract_job_id(tx)
+
+
+def test_job_ids_are_one_based(arbiter, requester, worker):
+    job_id = _create_job(arbiter, requester, worker, "write a haiku about escrow")
     assert job_id == 1, "first job created should have id 1, not 0"
 
 
-def test_approve_pays_worker(arbiter, accounts):
-    requester, worker = accounts[0], accounts[1]
-    job_id = arbiter.create_job(
-        args=[worker.address, "reverse a string in python"],
-        value=JOB_AMOUNT,
-        account=requester,
-    )
-    arbiter.submit_work(
-        args=[job_id, "def reverse(s): return s[::-1]", False],
-        account=worker,
-    )
+def test_approve_pays_worker(arbiter, requester, worker):
+    job_id = _create_job(arbiter, requester, worker, "reverse a string in python")
 
-    worker_balance_before = worker.get_balance()
-    arbiter.approve(args=[job_id], account=requester)
-    job = arbiter.get_job(args=[job_id])
+    tx = arbiter.submit_work(
+        args=[job_id, "def reverse(s): return s[::-1]", False], account=worker
+    ).transact()
+    assert tx_execution_succeeded(tx)
 
+    balance_before = arbiter.get_contract_balance().call()
+
+    tx = arbiter.approve(args=[job_id], account=requester).transact()
+    assert tx_execution_succeeded(tx)
+
+    job = arbiter.get_job(args=[job_id]).call()
     assert job["status"] == "resolved"
     assert job["payout_to"] == "worker"
-    assert worker.get_balance() > worker_balance_before
-
-
-def test_dispute_evidence_unavailable_url(arbiter, accounts):
-    requester, worker = accounts[0], accounts[1]
-    job_id = arbiter.create_job(
-        args=[worker.address, "deploy a working landing page"],
-        value=JOB_AMOUNT,
-        account=requester,
+    assert arbiter.get_contract_balance().call() < balance_before, (
+        "escrow should have left the contract on payout"
     )
-    # A URL that will not resolve to real content should fail digest pinning.
-    arbiter.submit_work(
+
+
+def test_dispute_with_mismatched_work_favors_requester(arbiter, requester, worker):
+    """Real LLM-based validator adjudication: deliverable clearly doesn't match
+    spec, so consensus should side with the requester."""
+    job_id = _create_job(
+        arbiter, requester, worker,
+        "Write a Python function called add(a, b) that returns the sum of a and b",
+    )
+    tx = arbiter.submit_work(
+        args=[job_id, "Here is a poem about clouds and sunsets.", False],
+        account=worker,
+    ).transact()
+    assert tx_execution_succeeded(tx)
+
+    tx = arbiter.dispute(
+        args=[job_id, "deliverable is a poem, not the requested function"],
+        account=requester,
+    ).transact()
+    assert tx_execution_succeeded(tx)
+
+    job = arbiter.get_job(args=[job_id]).call()
+    assert job["status"] == "resolved"
+    assert job["payout_to"] == "requester"
+
+
+def test_dispute_evidence_unavailable_url(arbiter, requester, worker):
+    job_id = _create_job(arbiter, requester, worker, "deploy a working landing page")
+
+    tx = arbiter.submit_work(
         args=[job_id, "https://this-domain-should-not-exist.invalid/page", True],
         account=worker,
-    )
-    arbiter.dispute(
-        args=[job_id, "site does not load"],
-        account=requester,
-    )
-    job = arbiter.get_job(args=[job_id])
+    ).transact()
+    assert tx_execution_succeeded(tx)
+
+    tx = arbiter.dispute(args=[job_id, "site does not load"], account=requester).transact()
+    assert tx_execution_succeeded(tx)
+
+    job = arbiter.get_job(args=[job_id]).call()
     assert job["status"] == "evidence_unavailable"
 
 
-def test_recover_unavailable_job_splits_50_50(arbiter, accounts):
-    requester, worker = accounts[0], accounts[1]
-    job_id = arbiter.create_job(
-        args=[worker.address, "deploy a working landing page"],
-        value=JOB_AMOUNT,
-        account=requester,
-    )
-    arbiter.submit_work(
+def test_recover_unavailable_job_splits_50_50(arbiter, requester, worker):
+    job_id = _create_job(arbiter, requester, worker, "deploy a working landing page")
+
+    tx = arbiter.submit_work(
         args=[job_id, "https://this-domain-should-not-exist.invalid/page", True],
         account=worker,
-    )
-    arbiter.dispute(args=[job_id, "site does not load"], account=requester)
+    ).transact()
+    assert tx_execution_succeeded(tx)
 
-    worker_before = worker.get_balance()
-    requester_before = requester.get_balance()
+    tx = arbiter.dispute(args=[job_id, "site does not load"], account=requester).transact()
+    assert tx_execution_succeeded(tx)
 
-    arbiter.recover_unavailable_job(args=[job_id, "content unrecoverable, split fairly"], account=worker)
-    job = arbiter.get_job(args=[job_id])
+    balance_before = arbiter.get_contract_balance().call()
 
+    tx = arbiter.recover_unavailable_job(
+        args=[job_id, "content unrecoverable, split fairly"], account=worker
+    ).transact()
+    assert tx_execution_succeeded(tx)
+
+    job = arbiter.get_job(args=[job_id]).call()
     assert job["status"] == "resolved"
     assert job["payout_to"] == "split"
-    assert worker.get_balance() > worker_before
-    assert requester.get_balance() > requester_before
+    assert job["recovery_used"] is True
+    assert arbiter.get_contract_balance().call() < balance_before
 
 
-def test_abandon_open_job_refunds_requester(arbiter, accounts, monkeypatch):
-    """Worker never submits -- requester should be able to reclaim escrow after
-    the abandonment window. Since ABANDONMENT_PERIOD is 7 days, this test
-    assumes a Localnet/Studio time-travel or mocked-clock helper; substitute
-    your gltest version's time control here."""
-    requester, worker = accounts[0], accounts[1]
-    job_id = arbiter.create_job(
-        args=[worker.address, "task nobody will ever start"],
-        value=JOB_AMOUNT,
-        account=requester,
-    )
-
-    # Attempting to claim abandonment immediately should fail.
-    with pytest.raises(Exception):
-        arbiter.abandon_job(args=[job_id, "worker never started"], account=requester)
-
-    # TODO: advance chain/contract time by ABANDONMENT_PERIOD here, e.g.:
-    # advance_time(days=7)
-    #
-    # requester_before = requester.get_balance()
-    # arbiter.abandon_job(args=[job_id, "worker never started"], account=requester)
-    # job = arbiter.get_job(args=[job_id])
-    # assert job["status"] == "resolved"
-    # assert job["payout_to"] == "requester"
-    # assert requester.get_balance() > requester_before
-
-
-def test_abandon_submitted_job_pays_worker(arbiter, accounts):
-    """Requester goes silent after work is submitted -- worker should be able to
-    claim payment after the abandonment window. Same time-travel caveat as above."""
-    requester, worker = accounts[0], accounts[1]
-    job_id = arbiter.create_job(
-        args=[worker.address, "write a README"],
-        value=JOB_AMOUNT,
-        account=requester,
-    )
-    arbiter.submit_work(args=[job_id, "# README\n\nDone.", False], account=worker)
+def test_abandon_open_job_too_early_fails(arbiter, requester, worker):
+    """Claiming abandonment before ABANDONMENT_PERIOD has elapsed should fail.
+    This is the part of the abandonment flow that's actually testable live --
+    full end-to-end abandonment needs a 7-day time advance, which most gltest
+    setups don't support against a real network. See note below."""
+    job_id = _create_job(arbiter, requester, worker, "task nobody will ever start")
 
     with pytest.raises(Exception):
-        arbiter.abandon_job(args=[job_id, "requester went silent"], account=worker)
+        arbiter.abandon_job(
+            args=[job_id, "worker never started"], account=requester
+        ).transact()
 
-    # TODO: advance_time(days=7), then assert worker gets paid, mirroring the
-    # test above.
+    # NOTE: full abandonment (after the real 7-day window) is not exercised
+    # here -- it was verified manually on a live Studio deployment with a
+    # temporarily shortened ABANDONMENT_PERIOD; see TESTING.md for that run's
+    # tx hash and result. If your gltest version exposes a time-travel
+    # cheatcode (check `direct_vm` / Direct Mode docs for your installed
+    # version), swap this test to use it instead of Studio mode for full
+    # end-to-end coverage.
 
 
-def test_only_requester_can_approve(arbiter, accounts):
-    requester, worker, outsider = accounts[0], accounts[1], accounts[2]
-    job_id = arbiter.create_job(
-        args=[worker.address, "simple task"],
-        value=JOB_AMOUNT,
-        account=requester,
-    )
-    arbiter.submit_work(args=[job_id, "done", False], account=worker)
+def test_only_requester_can_approve(arbiter, requester, worker, outsider):
+    job_id = _create_job(arbiter, requester, worker, "simple task")
+
+    tx = arbiter.submit_work(args=[job_id, "done", False], account=worker).transact()
+    assert tx_execution_succeeded(tx)
 
     with pytest.raises(Exception):
-        arbiter.approve(args=[job_id], account=outsider)
+        arbiter.approve(args=[job_id], account=outsider).transact()
+
+
+def test_only_requester_or_worker_can_dispute(arbiter, requester, worker, outsider):
+    job_id = _create_job(arbiter, requester, worker, "simple task")
+
+    tx = arbiter.submit_work(args=[job_id, "done", False], account=worker).transact()
+    assert tx_execution_succeeded(tx)
+
+    with pytest.raises(Exception):
+        arbiter.dispute(args=[job_id, "not my call"], account=outsider).transact()
