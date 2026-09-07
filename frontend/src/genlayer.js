@@ -95,11 +95,11 @@ export async function disputeJob(client, jobId, reason) {
   });
 }
 
-export async function recoverUnavailableJob(client, jobId) {
+export async function recoverUnavailableJob(client, jobId, reason) {
   return client.writeContract({
     address: CONTRACT_ADDRESS,
     functionName: "recover_unavailable_job",
-    args: [jobId],
+    args: [jobId, reason],
   });
 }
 
