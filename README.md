@@ -43,11 +43,15 @@ tests/                         gltest/pytest suite run against live consensus
 
 ## Status
 
-Contract logic (independent verdict consensus, digest-pinning, 1-based job IDs,
-deterministic 50/50 evidence-unavailable split, two-sided abandonment recovery)
-is adapted from the accepted, testnet-verified genlayer-escrow submission.
-Frontend rebuilds its client automatically on wallet account switches. Not yet
-deployed under this repo — see deployment steps below.
+Contract logic (independent leader/validate verdict consensus, digest-pinning,
+1-based job IDs, deterministic 50/50 evidence-unavailable split, two-sided
+abandonment recovery, `emit_transfer`-based payouts) is ported directly from
+the accepted, testnet-verified genlayer-escrow submission's proven patterns.
+Frontend rebuilds its client automatically on wallet account switches.
+Deployed and manually tested on GenLayer Studio (create → submit → approve
+happy path confirmed on-chain); dispute, recovery, and abandonment paths still
+to be exercised. Plan to redeploy to Testnet Bradbury for the final submission
+once Bradbury faucet funds are available.
 
 ## Deploying
 
