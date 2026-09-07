@@ -27,6 +27,7 @@ export default function App() {
   const [deliverable, setDeliverable] = useState("");
   const [isUrl, setIsUrl] = useState(true);
   const [reason, setReason] = useState("");
+  const [recoveryReason, setRecoveryReason] = useState("");
   const [abandonReason, setAbandonReason] = useState("");
 
   const [lookupId, setLookupId] = useState("");
@@ -99,8 +100,8 @@ export default function App() {
 
   async function handleRecover() {
     try {
-      const tx = await recoverUnavailableJob(client, Number(jobId));
-      setStatus(`Recovery adjudication requested. tx: ${tx}`);
+      const tx = await recoverUnavailableJob(client, Number(jobId), recoveryReason);
+      setStatus(`Recovery requested (50/50 split). tx: ${tx}`);
     } catch (e) {
       setStatus(`recover_unavailable_job failed: ${e.message}`);
     }
@@ -177,7 +178,8 @@ export default function App() {
       <section>
         <h2>Evidence-Unavailable Recovery</h2>
         <input placeholder="Job ID" value={jobId} onChange={(e) => setJobId(e.target.value)} style={{ width: "100%", marginBottom: 8 }} />
-        <button onClick={handleRecover} disabled={!client}>Request Fair Recovery</button>
+        <input placeholder="Recovery reason" value={recoveryReason} onChange={(e) => setRecoveryReason(e.target.value)} style={{ width: "100%", marginBottom: 8 }} />
+        <button onClick={handleRecover} disabled={!client}>Request Fair Recovery (50/50 split)</button>
       </section>
 
       <hr />
