@@ -2,7 +2,7 @@ import { createClient } from "genlayer-js";
 import { studionet } from "genlayer-js/chains";
 
 // Deployed on GenLayer Studio (studio.genlayer.com)
-export const CONTRACT_ADDRESS = "0xEF16CB5F1b8958e83dcaaaADCee20342Ce56ba09";
+export const CONTRACT_ADDRESS = "0x5CCF4f0e7b3392C48ff2BE2A894e08A92863A2Db";
 
 // Make sure the wallet is actively on GenLayer Studio before signing --
 // genlayer-js's client requires the wallet's current chain to match, or
