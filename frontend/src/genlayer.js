@@ -2,7 +2,15 @@ import { createClient } from "genlayer-js";
 import { studionet } from "genlayer-js/chains";
 
 // Deployed on GenLayer Studio (studio.genlayer.com)
-export const CONTRACT_ADDRESS = "0x5CCF4f0e7b3392C48ff2BE2A894e08A92863A2Db";
+export const CONTRACT_ADDRESS = "0x34390D6ffEb7450727d71fBfad22cFE7095dAac9";
+
+// Must match APPEAL_WINDOW in arbiter_contract.py exactly -- this is a
+// display-only value (for showing an estimated deadline in the UI) and
+// has no bearing on-chain enforcement, which the contract always governs.
+// Update this alongside APPEAL_WINDOW whenever you change it, e.g. set to
+// 2 * 60 * 1000 while testing with a shortened window, and back to
+// 24 * 60 * 60 * 1000 (the default below) before final submission.
+export const APPEAL_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 // Make sure the wallet is actively on GenLayer Studio before signing --
 // genlayer-js's client requires the wallet's current chain to match, or
@@ -92,6 +100,22 @@ export async function disputeJob(client, jobId, reason) {
     address: CONTRACT_ADDRESS,
     functionName: "dispute",
     args: [jobId, reason],
+  });
+}
+
+export async function appealJob(client, jobId, reason) {
+  return client.writeContract({
+    address: CONTRACT_ADDRESS,
+    functionName: "appeal",
+    args: [jobId, reason],
+  });
+}
+
+export async function finalizeJob(client, jobId) {
+  return client.writeContract({
+    address: CONTRACT_ADDRESS,
+    functionName: "finalize",
+    args: [jobId],
   });
 }
 
