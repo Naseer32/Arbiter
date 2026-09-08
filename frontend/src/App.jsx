@@ -18,6 +18,70 @@ import {
 const weiPerGen = 1_000_000_000_000_000_000n;
 
 export default function App() {
+  const [view, setView] = useState("landing"); // "landing" | "app"
+
+  if (view === "landing") {
+    return <Landing onLaunch={() => setView("app")} />;
+  }
+
+  return <ArbiterApp onBack={() => setView("landing")} />;
+}
+
+function Landing({ onLaunch }) {
+  return (
+    <div style={{ maxWidth: 640, margin: "0 auto", padding: "64px 24px", fontFamily: "system-ui, sans-serif" }}>
+      <div style={{ fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase", color: "#059669", fontWeight: 600, marginBottom: 12 }}>
+        Built for GenLayer's Agent Tank — Agentic Commerce Infrastructure
+      </div>
+      <h1 style={{ fontSize: 36, lineHeight: 1.15, margin: "0 0 16px" }}>
+        Escrow that AI agents can trust each other with.
+      </h1>
+      <p style={{ fontSize: 18, color: "#555", maxWidth: 520, marginBottom: 28 }}>
+        GenLayer validators independently adjudicate disputed work against the
+        original spec before releasing payment — no single party is the judge
+        of their own case.
+      </p>
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 48 }}>
+        <button
+          onClick={onLaunch}
+          style={{ padding: "12px 22px", borderRadius: 8, background: "#059669", color: "#fff", border: "none", fontWeight: 600, fontSize: 15, cursor: "pointer" }}
+        >
+          Launch App →
+        </button>
+        <a
+          href="https://github.com/Naseer32/Arbiter"
+          target="_blank"
+          rel="noopener"
+          style={{ padding: "12px 22px", borderRadius: 8, border: "1px solid #ccc", color: "#333", fontWeight: 600, fontSize: 15, textDecoration: "none" }}
+        >
+          View Source
+        </a>
+      </div>
+
+      <hr style={{ border: 0, borderTop: "1px solid #eee", margin: "40px 0" }} />
+
+      <h2 style={{ fontSize: 13, letterSpacing: "0.06em", textTransform: "uppercase", color: "#888" }}>Why</h2>
+      <p style={{ color: "#444" }}>
+        AI agents are starting to hire other AI agents for research, coding,
+        data collection, and content work. Traditional smart contracts can
+        move money and check simple conditions, but they can't judge whether
+        complex delivered work satisfies a natural-language spec. Arbiter
+        adds that adjudication layer.
+      </p>
+
+      <h2 style={{ fontSize: 13, letterSpacing: "0.06em", textTransform: "uppercase", color: "#888", marginTop: 32 }}>How it works</h2>
+      <ol style={{ color: "#444", paddingLeft: 20 }}>
+        <li style={{ marginBottom: 10 }}>A requester agent posts a spec and escrows GEN.</li>
+        <li style={{ marginBottom: 10 }}>A worker agent delivers text/code, or a URL — pinned via SHA-256 content hash.</li>
+        <li style={{ marginBottom: 10 }}>The requester approves directly, or disputes for adjudication.</li>
+        <li style={{ marginBottom: 10 }}>On dispute, GenLayer validators independently re-judge the work and must agree.</li>
+        <li style={{ marginBottom: 10 }}>The losing party may appeal once, using a structurally different re-adjudication method, before payout finalizes.</li>
+      </ol>
+    </div>
+  );
+}
+
+function ArbiterApp({ onBack }) {
   const [account, setAccount] = useState(null);
   const [client, setClient] = useState(null);
   const [status, setStatus] = useState("");
@@ -177,6 +241,9 @@ export default function App() {
 
   return (
     <div style={{ maxWidth: 640, margin: "0 auto", padding: 24, fontFamily: "system-ui, sans-serif" }}>
+      <button onClick={onBack} style={{ background: "none", border: "none", color: "#059669", cursor: "pointer", padding: 0, marginBottom: 16, fontSize: 14 }}>
+        ← Back to overview
+      </button>
       <h1>Arbiter</h1>
       <p style={{ color: "#666" }}>
         Agent-to-agent escrow. GenLayer validators independently adjudicate disputed work
