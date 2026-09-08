@@ -1,26 +1,32 @@
 # Manual Testing — Live On-Chain Evidence
 
 All tests below were run against the deployed Arbiter contract on GenLayer
-Studio:
+Studio.
 
-**Contract address:** `0x5CCF4f0e7b3392C48ff2BE2A894e08A92863A2Db`
-**Network:** GenLayer Studio (`studio.genlayer.com`)
 **Test wallets:**
 - `0x53b20BeADADe01b46a3fb5bdbC85D3A7B0f12A96`
 - `0x5E31205009bC47842DAb8534F7492823A4dE6b35`
+- Worker (Tests 5-6): `0x58e9e85f73840b07e2d8f67c65ac62620F18bf82`
+- Requester (Tests 5-6): `0xBD6D84fC12AE3b9b3110FCc9efF91DDf5d59Aa01`
 
-> **Note on abandonment timing:** Test 4 below was run with `ABANDONMENT_PERIOD`
-> temporarily shortened to 1 hour (from the shipped 7-day value) purely to make
-> the timeout observable within a live testing session. The contract source in
-> this repo has since been reverted to the real 7-day threshold; this test
-> demonstrates the abandonment *logic* is correct, not the literal production
-> timing.
+> **Note on abandonment timing:** Test 4 was run with `ABANDONMENT_PERIOD`
+> temporarily shortened to 1 hour (from the shipped 7-day value) purely to
+> make the timeout observable within a live testing session. The contract
+> has since been reverted to the real 7-day threshold.
+
+> **Note on appeal timing:** Tests 5-6 were run with `APPEAL_WINDOW`
+> temporarily shortened to 2 minutes (from the shipped 24-hour value), same
+> approach as above. The contract has since been reverted to the real
+> 24-hour threshold and re-verified (see "Post-Upgrade Re-Verification"
+> below).
 
 ---
 
 ## Test 1 — Happy Path (create → submit → approve)
 
 Good-faith work submitted and accepted directly, no dispute needed.
+
+**Contract:** `0x5CCF4f0e7b3392C48ff2BE2A894e08A92863A2Db` (pre-upgrade)
 
 - **Job spec:** "Write a one-line Python function that adds two numbers"
 - **Requester:** `0x53b20B...f12A96`
@@ -46,6 +52,8 @@ All FINALIZED, SUCCESS, consensus result Accepted.
 Deliberately mismatched deliverable submitted, to test real LLM-based
 validator adjudication under dispute.
 
+**Contract:** `0x5CCF4f0e7b3392C48ff2BE2A894e08A92863A2Db` (pre-upgrade)
+
 - **Job spec:** "Write a Python function called add(a, b) that returns the sum
   of a and b"
 - **Requester:** `0x5E3120...dE6b35`
@@ -59,11 +67,18 @@ validator adjudication under dispute.
 GenLayer validators correctly recognized the deliverable did not satisfy the
 spec and returned the escrow to the requester rather than paying the worker.
 
+*(Note: at the time of this test, dispute resolved and paid out immediately.
+The appeal-loop upgrade below changes this — dispute now enters
+`verdict_pending` and requires either an appeal or `finalize()` to pay out.
+See Tests 5-6.)*
+
 ---
 
 ## Test 3 — Evidence Unavailable → Deterministic Recovery
 
 Tests the fairness path when a URL deliverable cannot be verified.
+
+**Contract:** `0x5CCF4f0e7b3392C48ff2BE2A894e08A92863A2Db` (pre-upgrade)
 
 - **Job spec:** "Deploy a working landing page and share the live URL"
 - **Requester:** `0x5E3120...dE6b35`
@@ -90,6 +105,8 @@ LLM judgment call (there was no reliable evidence left to judge).
 Tests the fairness path when a worker never starts work and the requester
 wants to reclaim escrow after a timeout.
 
+**Contract:** `0x5CCF4f0e7b3392C48ff2BE2A894e08A92863A2Db` (pre-upgrade)
+
 - **Job spec:** "Build a simple landing page with a headline and a CTA button"
 - **Requester:** `0x5E3120...dE6b35`
 - **Worker:** `0x53b20B...f12A96`
@@ -97,8 +114,7 @@ wants to reclaim escrow after a timeout.
 - **Job status before claim:** `open` (no work ever submitted)
 
 `abandon_job` called with reason "No work submitted yet and the time already
-passed", after the (temporarily shortened, see note above) abandonment window
-elapsed.
+passed", after the (temporarily shortened) abandonment window elapsed.
 
 **Result:** `status: "resolved"`, `payout_to: "requester"`, `recovery_used: true`
 - Tx: `0x8eccfe26ecf51e57e01ef57d2275dd09c00334d39b7cf1a6464f334296dd8d76`
@@ -106,44 +122,15 @@ elapsed.
 
 ---
 
-## Summary
-
-| Scenario | Outcome | Verified |
-|---|---|---|
-| Good work, direct approval | Worker paid in full | ✅ |
-| Bad work, disputed | Validators sided with requester | ✅ |
-| Unreachable evidence | Deterministic 50/50 split | ✅ |
-| Worker never starts | Requester refunded after timeout | ✅ |
-
-All four core payout paths of the adjudication state machine have been
-exercised against live GenLayer Studio consensus, using two distinct wallet
-addresses acting as requester and worker across different jobs.
-
-# Manual Testing Addendum — Appeal & Finalize
-
-Tests below extend the original TESTING.md with the appeal-loop feature
-added for Agent Tank (checklist-based re-adjudication + finalize-after-
-window), run against the upgraded Arbiter contract on GenLayer Studio.
-
-**Contract address:** `0x34390D6ffEb7450727d71fBfad22cFE7095dAac9`
-**Network:** GenLayer Studio (`studio.genlayer.com`)
-**Test wallets:**
-- Requester: `0xBD6D84fC12AE3b9b3110FCc9efF91DDf5d59Aa01`
-- Worker: `0x58e9e85f73840b07e2d8f67c65ac62620F18bf82`
-
-> **Note on appeal timing:** `APPEAL_WINDOW` was temporarily shortened to
-> 2 minutes (from the shipped 24-hour value) purely to make the window
-> observable within a live testing session, same approach used for
-> `ABANDONMENT_PERIOD` in the original TESTING.md. The contract has since
-> been reverted to the real 24-hour threshold before final submission.
-
----
-
-## Test 5 — Appeal Overturns Nothing, But Confirms the Path (Checklist Method)
+## Test 5 — Appeal After Dispute (Checklist Adjudication)
 
 Tests that a disputed job correctly parks in `verdict_pending` without
-paying out, and that the losing party can appeal to trigger an
-independent, structurally different re-adjudication.
+paying out, and that the losing party can appeal within the window to
+trigger an independent, structurally different re-adjudication method
+(checklist extraction + per-check evaluation, rather than repeating the
+same holistic prompt).
+
+**Contract:** `0x34390D6ffEb7450727d71fBfad22cFE7095dAac9` (post-upgrade)
 
 - **Job spec:** "Write a Python function called add(a, b) that returns the
   sum of a and b"
@@ -166,15 +153,12 @@ the job.
 
 | Step | Tx |
 |---|---|
-| create_job (Job 2) | see Studio history |
-| submit_work | see Studio history |
-| dispute | see Studio history |
 | appeal | `0xb5b8df6581ed20e2092a4c8080d3de94a68b8c1a0e3643d7de800e7bfa008a91` |
 
 All FINALIZED, SUCCESS, consensus Agree across validators.
 
-**Negative test — appeal after window closed (Job 1):** Same scenario,
-but `appeal` called ~2:39 after the verdict, past the 2-minute window.
+**Negative test — appeal after window closed:** Same scenario on a separate
+job, but `appeal` called ~2:39 after the verdict, past the 2-minute window.
 
 - Tx: `0xcad071974a8d879497bdb6442bac73aae53517052f01611a5ff3a6fa8d34613a`
 - Result: `ERROR`, all responding validators agreed on rollback reason
@@ -189,6 +173,8 @@ Tests that an undisputed appeal window correctly allows either party to
 finalize the original verdict, and that finalize correctly refuses to run
 early.
 
+**Contract:** `0x34390D6ffEb7450727d71fBfad22cFE7095dAac9` (post-upgrade)
+
 - **Job spec:** "Write a Python function called add(a, b) that returns the
   sum of a and b"
 - **Requester:** `0xBD6D84...59Aa01`
@@ -199,7 +185,7 @@ early.
   function"
 
 **Step 1 — Dispute:** Result: `status: "verdict_pending"`, `pending_verdict:
-"requester"` (Job 3).
+"requester"`.
 
 **Negative test — finalize before window closed:**
 - Tx: `0x69cd1351b839cbb61c7a656b4574a5344c5cbfce8e98320c59f50b32f5846f9c`
@@ -215,31 +201,65 @@ early.
 
 ---
 
+## Post-Upgrade Re-Verification
+
+After reverting `APPEAL_WINDOW` to the real 24-hour value and re-deploying
+(same contract address, in-place upgrade), the original happy path was
+re-run to confirm the appeal-loop changes didn't disturb existing behavior.
+
+**Contract:** `0x34390D6ffEb7450727d71fBfad22cFE7095dAac9`
+
+- **Job spec:** "Write a one-line Python function that adds two numbers"
+- **Requester:** `0x5E31205009bC47842DAb8534F7492823A4dE6b35`
+- **Worker:** `0x53b20BeADADe01b46a3fb5bdbC85D3A7B0f12A96`
+- **Escrow:** 5 GEN
+- **Deliverable:** `def add(a, b): return a + b`
+
+**Result:** `status: "resolved"`, `payout_to: "worker"` — direct approval
+still resolves and pays out immediately with no `verdict_pending` step,
+confirming that state only applies to the dispute path, as intended.
+
+| Step | Tx |
+|---|---|
+| create_job (Job 4) | `0x7c2fa56d638a830ce8768ec2a9290a404cf1ac09eae28fe5d230c4e805d88d50` |
+| submit_work | `0x6617c429f18372842e0abd0ec6fa255948eba5ab5884075ef113e3230a0621bc` |
+| approve | `0xa9ce364b3010b445fa6d280dc45054e5b4eeedbd33ab173de123ea35950a5000` |
+
+All ACCEPTED/FINALIZED, SUCCESS, consensus result Accepted.
+
+---
+
 ## Summary
 
 | Scenario | Outcome | Verified |
 |---|---|---|
+| Good work, direct approval | Worker paid in full | ✅ |
+| Bad work, disputed (pre-upgrade) | Validators sided with requester | ✅ |
+| Unreachable evidence | Deterministic 50/50 split | ✅ |
+| Worker never starts | Requester refunded after timeout | ✅ |
 | Dispute holds escrow pending appeal | `verdict_pending`, no payout | ✅ |
 | Appeal within window (checklist method) | Independent re-adjudication, settles job | ✅ |
 | Appeal after window closed | Correctly reverted | ✅ |
 | Finalize before window closed | Correctly reverted | ✅ |
 | Finalize after window closed, no appeal | Original verdict paid out | ✅ |
+| Post-upgrade happy path re-check | Still resolves/pays immediately, unaffected | ✅ |
 
-All appeal-loop and finalize paths have been exercised against live
-GenLayer Studio consensus, including two negative tests confirming the
-time-window guards function correctly in both directions.
+All core payout paths, the full appeal-loop state machine, and both
+time-window guards have been exercised against live GenLayer Studio
+consensus, including negative tests confirming enforcement in both
+directions, and a post-upgrade re-verification confirming no regression to
+existing functionality.
 
 ## Model diversity observed
 
-Live consensus rounds during this testing session used validators backed
-by distinct underlying models within the same job, e.g.:
-`policy:prd-qwen`, `policy:prd-minimax`, `policy:prd-mistral`,
-`policy:prd-grok`, `policy:prd-gpt-5-4`, `openai/gpt-5.4`, `policy:prd-
-gemini`, `policy:prd-sonnet`, `policy:prd-glm`, `policy:prd-gemma`,
+Live consensus rounds during testing used validators backed by distinct
+underlying models within the same job, e.g.: `policy:prd-qwen`,
+`policy:prd-minimax`, `policy:prd-mistral`, `policy:prd-grok`,
+`policy:prd-gpt-5-4`, `openai/gpt-5.4`, `policy:prd-gemini`,
+`policy:prd-sonnet`, `policy:prd-glm`, `policy:prd-gemma`,
 `google/gemini-3-flash-preview`, `policy:prd-gpt-oss`, `policy:prd-
-deepseek`, `anthropic/claude-sonnet-4.6`. Model diversity across
-validators is inherent to GenLayer's validator network at the
-infrastructure level, and Arbiter's appeal path adds a second,
-structurally distinct *adjudication method* (checklist-based) on top of
-that, rather than re-running the same reasoning approach twice.
-
+deepseek`, `anthropic/claude-sonnet-4.6`. Model diversity across validators
+is inherent to GenLayer's validator network at the infrastructure level;
+Arbiter's appeal path adds a second, structurally distinct *adjudication
+method* (checklist-based) on top of that, rather than re-running the same
+reasoning approach twice.
