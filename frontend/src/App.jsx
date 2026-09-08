@@ -14,18 +14,8 @@ import {
   getJob,
   APPEAL_WINDOW_MS,
 } from "./genlayer.js";
-import {
-  IconSearch,
-  IconFilePlus,
-  IconUpload,
-  IconScale,
-  IconFlag,
-  IconCheckCircle,
-  IconLifeBuoy,
-  IconAlertTriangle,
-  IconWallet,
-} from "./icons.jsx";
-import "./arbiter.css";
+
+const weiPerGen = 1_000_000_000_000_000_000n;
 
 export default function App() {
   const [view, setView] = useState("landing"); // "landing" | "app"
@@ -39,27 +29,39 @@ export default function App() {
 
 function Landing({ onLaunch }) {
   return (
-    <div className="landing">
-      <div className="landing-eyebrow">Built for GenLayer's Agent Tank — Agentic Commerce Infrastructure</div>
-      <h1 className="landing-title">Escrow that AI agents can trust each other with.</h1>
-      <p className="landing-lede">
+    <div style={{ maxWidth: 640, margin: "0 auto", padding: "64px 24px", fontFamily: "system-ui, sans-serif" }}>
+      <div style={{ fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase", color: "#059669", fontWeight: 600, marginBottom: 12 }}>
+        Built for GenLayer's Agent Tank — Agentic Commerce Infrastructure
+      </div>
+      <h1 style={{ fontSize: 36, lineHeight: 1.15, margin: "0 0 16px" }}>
+        Escrow that AI agents can trust each other with.
+      </h1>
+      <p style={{ fontSize: 18, color: "#555", maxWidth: 520, marginBottom: 28 }}>
         GenLayer validators independently adjudicate disputed work against the
         original spec before releasing payment — no single party is the judge
         of their own case.
       </p>
-      <div className="btn-row">
-        <button className="btn btn-primary" onClick={onLaunch}>
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 48 }}>
+        <button
+          onClick={onLaunch}
+          style={{ padding: "12px 22px", borderRadius: 8, background: "#059669", color: "#fff", border: "none", fontWeight: 600, fontSize: 15, cursor: "pointer" }}
+        >
           Launch App →
         </button>
-        <a className="btn btn-outline" href="https://github.com/Naseer32/Arbiter" target="_blank" rel="noopener">
+        <a
+          href="https://github.com/Naseer32/Arbiter"
+          target="_blank"
+          rel="noopener"
+          style={{ padding: "12px 22px", borderRadius: 8, border: "1px solid #ccc", color: "#333", fontWeight: 600, fontSize: 15, textDecoration: "none" }}
+        >
           View Source
         </a>
       </div>
 
-      <hr className="landing-divider" />
+      <hr style={{ border: 0, borderTop: "1px solid #eee", margin: "40px 0" }} />
 
-      <h2 className="landing-section-title">Why</h2>
-      <p className="landing-body">
+      <h2 style={{ fontSize: 13, letterSpacing: "0.06em", textTransform: "uppercase", color: "#888" }}>Why</h2>
+      <p style={{ color: "#444" }}>
         AI agents are starting to hire other AI agents for research, coding,
         data collection, and content work. Traditional smart contracts can
         move money and check simple conditions, but they can't judge whether
@@ -67,13 +69,13 @@ function Landing({ onLaunch }) {
         adds that adjudication layer.
       </p>
 
-      <h2 className="landing-section-title" style={{ marginTop: 32 }}>How it works</h2>
-      <ol className="landing-steps">
-        <li>A requester agent posts a spec and escrows GEN.</li>
-        <li>A worker agent delivers text/code, or a URL — pinned via SHA-256 content hash.</li>
-        <li>The requester approves directly, or disputes for adjudication.</li>
-        <li>On dispute, GenLayer validators independently re-judge the work and must agree.</li>
-        <li>The losing party may appeal once, using a structurally different re-adjudication method, before payout finalizes.</li>
+      <h2 style={{ fontSize: 13, letterSpacing: "0.06em", textTransform: "uppercase", color: "#888", marginTop: 32 }}>How it works</h2>
+      <ol style={{ color: "#444", paddingLeft: 20 }}>
+        <li style={{ marginBottom: 10 }}>A requester agent posts a spec and escrows GEN.</li>
+        <li style={{ marginBottom: 10 }}>A worker agent delivers text/code, or a URL — pinned via SHA-256 content hash.</li>
+        <li style={{ marginBottom: 10 }}>The requester approves directly, or disputes for adjudication.</li>
+        <li style={{ marginBottom: 10 }}>On dispute, GenLayer validators independently re-judge the work and must agree.</li>
+        <li style={{ marginBottom: 10 }}>The losing party may appeal once, using a structurally different re-adjudication method, before payout finalizes.</li>
       </ol>
     </div>
   );
@@ -82,8 +84,7 @@ function Landing({ onLaunch }) {
 function ArbiterApp({ onBack }) {
   const [account, setAccount] = useState(null);
   const [client, setClient] = useState(null);
-  const [status, setStatus] = useState(null); // { text, tone }
-  const [pendingAction, setPendingAction] = useState(null);
+  const [status, setStatus] = useState("");
 
   const [worker, setWorker] = useState("");
   const [spec, setSpec] = useState("");
@@ -100,344 +101,259 @@ function ArbiterApp({ onBack }) {
   const [lookupId, setLookupId] = useState("");
   const [jobData, setJobData] = useState(null);
 
+  async function handleConnect() {
+    try {
+      const acc = await connectWallet();
+      setAccount(acc);
+      setClient(getClient(acc));
+      setStatus(`Connected: ${acc}`);
+    } catch (e) {
+      setStatus(`Connect failed: ${e.message}`);
+    }
+  }
+
+  // If the user switches accounts in their wallet mid-session, rebuild the
+  // client with the new account instead of silently signing with the old one.
   useEffect(() => {
     const unsubscribe = onAccountsChanged((newAccount) => {
       if (!newAccount) {
         setAccount(null);
         setClient(null);
-        setStatus({ text: "Wallet disconnected.", tone: "neutral" });
+        setStatus("Wallet disconnected.");
         return;
       }
       setAccount(newAccount);
       setClient(getClient(newAccount));
-      setStatus({ text: `Switched account: ${newAccount}`, tone: "success" });
+      setStatus(`Switched account: ${newAccount}`);
     });
     return unsubscribe;
   }, []);
 
-  async function run(actionName, fn, successText) {
-    setPendingAction(actionName);
-    setStatus(null);
+  async function handleCreateJob() {
     try {
-      const tx = await fn();
-      setStatus({ text: `${successText} tx: ${tx}`, tone: "success" });
-    } catch (e) {
-      setStatus({ text: `${actionName} failed: ${e.message}`, tone: "error" });
-    } finally {
-      setPendingAction(null);
-    }
-  }
-
-  async function handleConnect() {
-    setPendingAction("connect");
-    setStatus(null);
-    try {
-      const acc = await connectWallet();
-      setAccount(acc);
-      setClient(getClient(acc));
-      setStatus({ text: `Connected: ${acc}`, tone: "success" });
-    } catch (e) {
-      setStatus({ text: `Connect failed: ${e.message}`, tone: "error" });
-    } finally {
-      setPendingAction(null);
-    }
-  }
-
-  function handleCreateJob() {
-    run("create_job", async () => {
       const amountWei = BigInt(Math.floor(parseFloat(amount || "0") * 1e18));
-      return createJob(client, worker, spec, amountWei);
-    }, "Job created.");
+      const tx = await createJob(client, worker, spec, amountWei);
+      setStatus(`Job created. tx: ${tx}`);
+    } catch (e) {
+      setStatus(`create_job failed: ${e.message}`);
+    }
   }
 
-  function handleSubmitWork() {
-    run("submit_work", () => submitWork(client, Number(jobId), deliverable, isUrl), "Work submitted.");
+  async function handleSubmitWork() {
+    try {
+      const tx = await submitWork(client, Number(jobId), deliverable, isUrl);
+      setStatus(`Work submitted. tx: ${tx}`);
+    } catch (e) {
+      setStatus(`submit_work failed: ${e.message}`);
+    }
   }
 
-  function handleApprove() {
-    run("approve", () => approveJob(client, Number(jobId)), "Approved, worker paid.");
+  async function handleApprove() {
+    try {
+      const tx = await approveJob(client, Number(jobId));
+      setStatus(`Approved, worker paid. tx: ${tx}`);
+    } catch (e) {
+      setStatus(`approve failed: ${e.message}`);
+    }
   }
 
-  function handleDispute() {
-    run("dispute", () => disputeJob(client, Number(jobId), reason), "Dispute submitted — verdict pending, appeal window now open.");
+  async function handleDispute() {
+    try {
+      const tx = await disputeJob(client, Number(jobId), reason);
+      setStatus(`Dispute submitted for adjudication. Verdict is pending -- appeal window is now open. tx: ${tx}`);
+    } catch (e) {
+      setStatus(`dispute failed: ${e.message}`);
+    }
   }
 
-  function handleAppeal() {
-    run("appeal", () => appealJob(client, Number(jobId), appealReason), "Appeal submitted for independent re-adjudication.");
+  async function handleAppeal() {
+    try {
+      const tx = await appealJob(client, Number(jobId), appealReason);
+      setStatus(`Appeal submitted for independent re-adjudication. tx: ${tx}`);
+    } catch (e) {
+      setStatus(`appeal failed: ${e.message}`);
+    }
   }
 
-  function handleFinalize() {
-    run("finalize", () => finalizeJob(client, Number(jobId)), "Job finalized, original verdict paid out.");
+  async function handleFinalize() {
+    try {
+      const tx = await finalizeJob(client, Number(jobId));
+      setStatus(`Job finalized, original verdict paid out. tx: ${tx}`);
+    } catch (e) {
+      setStatus(`finalize failed: ${e.message}`);
+    }
   }
 
-  function handleRecover() {
-    run("recover_unavailable_job", () => recoverUnavailableJob(client, Number(jobId), recoveryReason), "Recovery requested (50/50 split).");
+  async function handleRecover() {
+    try {
+      const tx = await recoverUnavailableJob(client, Number(jobId), recoveryReason);
+      setStatus(`Recovery requested (50/50 split). tx: ${tx}`);
+    } catch (e) {
+      setStatus(`recover_unavailable_job failed: ${e.message}`);
+    }
   }
 
-  function handleAbandon() {
-    run("abandon_job", () => abandonJob(client, Number(jobId), abandonReason), "Abandonment claim submitted.");
+  async function handleAbandon() {
+    try {
+      const tx = await abandonJob(client, Number(jobId), abandonReason);
+      setStatus(`Abandonment claim submitted. tx: ${tx}`);
+    } catch (e) {
+      setStatus(`abandon_job failed: ${e.message}`);
+    }
   }
 
   async function handleLookup() {
-    setPendingAction("lookup");
-    setStatus(null);
     try {
       const data = await getJob(client, Number(lookupId));
       setJobData(data);
     } catch (e) {
-      setStatus({ text: `get_job failed: ${e.message}`, tone: "error" });
-    } finally {
-      setPendingAction(null);
+      setStatus(`get_job failed: ${e.message}`);
     }
   }
 
+  // Human-readable status badge, and which actions make sense given the
+  // looked-up job's current on-chain status -- purely informational, the
+  // contract is still the source of truth and will revert invalid calls.
   function statusInfo(data) {
     if (!data) return null;
     switch (data.status) {
       case "open":
-        return { label: "Open — awaiting worker submission", tone: "open", validActions: "Submit Work, Abandon (after grace period)" };
+        return { label: "Open — awaiting worker submission", validActions: "Submit Work, Abandon (after grace period)" };
       case "submitted":
-        return { label: "Submitted — awaiting requester action", tone: "open", validActions: "Approve, Dispute, Abandon (after grace period)" };
+        return { label: "Submitted — awaiting requester action", validActions: "Approve, Dispute, Abandon (after grace period)" };
       case "disputed":
-        return { label: "Disputed — adjudication in progress", tone: "neutral", validActions: "none (transient state)" };
+        return { label: "Disputed — adjudication in progress", validActions: "none (transient state)" };
       case "verdict_pending":
         return {
-          label: `Verdict pending: "${data.pending_verdict}"`,
-          tone: "pending",
-          detail: `Appeal window open until ${new Date(new Date(data.verdict_at).getTime() + APPEAL_WINDOW_MS).toLocaleString()}`,
+          label: `Verdict pending: "${data.pending_verdict}" — appeal window open until ${new Date(new Date(data.verdict_at).getTime() + APPEAL_WINDOW_MS).toLocaleString()}`,
           validActions: "Appeal (losing party only), Finalize (after window closes)",
         };
       case "evidence_unavailable":
-        return { label: "Evidence unavailable — awaiting recovery", tone: "danger", validActions: "Request Fair Recovery" };
+        return { label: "Evidence unavailable — awaiting recovery", validActions: "Request Fair Recovery" };
       case "resolved":
-        return { label: `Resolved — paid to: ${data.payout_to}${data.appeal_used ? " (via appeal)" : ""}`, tone: "success", validActions: "none — job is closed" };
+        return { label: `Resolved — paid to: ${data.payout_to}${data.appeal_used ? " (via appeal)" : ""}`, validActions: "none — job is closed" };
       default:
-        return { label: data.status, tone: "neutral", validActions: "unknown" };
+        return { label: data.status, validActions: "unknown" };
     }
   }
 
   const info = statusInfo(jobData);
 
   return (
-    <div className="arbiter-root">
-      <button className="btn-ghost" onClick={onBack}>
+    <div style={{ maxWidth: 640, margin: "0 auto", padding: 24, fontFamily: "system-ui, sans-serif" }}>
+      <button onClick={onBack} style={{ background: "none", border: "none", color: "#059669", cursor: "pointer", padding: 0, marginBottom: 16, fontSize: 14 }}>
         ← Back to overview
       </button>
+      <h1>Arbiter</h1>
+      <p style={{ color: "#666" }}>
+        Agent-to-agent escrow. GenLayer validators independently adjudicate disputed work
+        against the original spec before releasing payment.
+      </p>
 
-      <div className="header-row">
-        <div>
-          <h1 className="brand-name">Arbiter</h1>
-          <p className="brand-sub">Agent-to-agent escrow, adjudicated by GenLayer.</p>
-        </div>
+      {!account ? (
+        <button onClick={handleConnect}>Connect Wallet</button>
+      ) : (
+        <p style={{ fontSize: 13, wordBreak: "break-all" }}>Connected: {account}</p>
+      )}
 
-        {!account ? (
-          <button className="btn btn-primary btn-connect" onClick={handleConnect} disabled={pendingAction === "connect"}>
-            {pendingAction === "connect" ? <span className="spinner" /> : <IconWallet className="stage-icon" style={{ color: "#12100a" }} />}
-            {pendingAction === "connect" ? "Connecting…" : "Connect Wallet"}
-          </button>
-        ) : (
-          <div className="wallet-box">
-            <span className="wallet-dot" />
-            <span className="wallet-address">{account.slice(0, 6)}…{account.slice(-4)}</span>
+      <hr />
+
+      <section>
+        <h2>Look Up a Job</h2>
+        <input placeholder="Job ID" value={lookupId} onChange={(e) => setLookupId(e.target.value)} style={{ width: "100%", marginBottom: 8 }} />
+        <button onClick={handleLookup} disabled={!client}>Get Job</button>
+        {jobData && (
+          <div style={{ marginTop: 12 }}>
+            {info && (
+              <div style={{ background: "#eef6ff", border: "1px solid #cfe3fb", borderRadius: 6, padding: "10px 12px", marginBottom: 8, fontSize: 14 }}>
+                <div><strong>Status:</strong> {info.label}</div>
+                <div style={{ color: "#555", marginTop: 4 }}><strong>Valid next actions:</strong> {info.validActions}</div>
+              </div>
+            )}
+            <pre style={{ background: "#f5f5f5", padding: 12, overflowX: "auto" }}>
+              {JSON.stringify(jobData, null, 2)}
+            </pre>
           </div>
         )}
-      </div>
+      </section>
 
-      <div className="pipeline">
-        {/* Lookup */}
-        <div className="stage stage-lookup">
-          <div className="stage-header">
-            <IconSearch className="stage-icon" />
-            <h2 className="stage-title">Look Up a Job</h2>
-          </div>
-          <p className="stage-help">Inspect any job's current status, verdict, and payout by ID.</p>
-          <div className="lookup-row">
-            <input
-              className="input"
-              placeholder="Job ID"
-              value={lookupId}
-              onChange={(e) => setLookupId(e.target.value)}
-            />
-            <button className="btn btn-outline" onClick={handleLookup} disabled={!client || pendingAction === "lookup"}>
-              {pendingAction === "lookup" ? <span className="spinner" /> : <IconSearch className="stage-icon" style={{ width: 15, height: 15 }} />}
-              {pendingAction === "lookup" ? "Looking up…" : "Get Job"}
-            </button>
-          </div>
+      <hr />
 
-          {jobData && (
-            <div className="status-panel">
-              {info && (
-                <>
-                  <div className={`status-head tone-${info.tone}`}>
-                    {info.tone === "success" && <IconCheckCircle style={{ width: 15, height: 15 }} />}
-                    {info.tone === "danger" && <IconAlertTriangle style={{ width: 15, height: 15 }} />}
-                    {info.tone === "pending" && <IconScale style={{ width: 15, height: 15 }} />}
-                    {info.label}
-                  </div>
-                  <div className="status-body">
-                    {info.detail && <div style={{ marginBottom: 6 }}>{info.detail}</div>}
-                    <span className="status-actions-label">Valid next actions:</span>
-                    {info.validActions}
-                  </div>
-                </>
-              )}
-              <pre className="job-json">{JSON.stringify(jobData, null, 2)}</pre>
-            </div>
-          )}
+      <section>
+        <h2>1. Requester: Post a Job</h2>
+        <input placeholder="Worker agent address" value={worker} onChange={(e) => setWorker(e.target.value)} style={{ width: "100%", marginBottom: 8 }} />
+        <textarea placeholder="Job spec (natural-language requirements)" value={spec} onChange={(e) => setSpec(e.target.value)} style={{ width: "100%", marginBottom: 8 }} rows={3} />
+        <input placeholder="Escrow amount (GEN)" value={amount} onChange={(e) => setAmount(e.target.value)} style={{ width: "100%", marginBottom: 8 }} />
+        <button onClick={handleCreateJob} disabled={!client}>Create Job</button>
+      </section>
+
+      <hr />
+
+      <section>
+        <h2>2. Worker: Submit Deliverable</h2>
+        <input placeholder="Job ID" value={jobId} onChange={(e) => setJobId(e.target.value)} style={{ width: "100%", marginBottom: 8 }} />
+        <textarea placeholder="Deliverable (URL or text/code)" value={deliverable} onChange={(e) => setDeliverable(e.target.value)} style={{ width: "100%", marginBottom: 8 }} rows={3} />
+        <label style={{ display: "block", marginBottom: 8 }}>
+          <input type="checkbox" checked={isUrl} onChange={(e) => setIsUrl(e.target.checked)} /> Deliverable is a URL
+        </label>
+        <button onClick={handleSubmitWork} disabled={!client}>Submit Work</button>
+      </section>
+
+      <hr />
+
+      <section>
+        <h2>3. Requester: Approve or Dispute</h2>
+        <p style={{ fontSize: 13, color: "#666", marginTop: -4 }}>
+          Job ID field above is shared across sections 2-6 below.
+        </p>
+        <button onClick={handleApprove} disabled={!client} style={{ marginRight: 8 }}>Approve (pay worker)</button>
+        <div style={{ marginTop: 12 }}>
+          <input placeholder="Dispute reason" value={reason} onChange={(e) => setReason(e.target.value)} style={{ width: "100%", marginBottom: 8 }} />
+          <button onClick={handleDispute} disabled={!client}>Dispute → Adjudicate</button>
         </div>
+      </section>
 
-        {/* 1. Post a Job */}
-        <div className="stage" data-connected="true">
-          <div className="stage-header">
-            <span className="stage-number">1</span>
-            <IconFilePlus className="stage-icon" />
-            <h2 className="stage-title">Post a Job</h2>
-            <span className="stage-role">Requester</span>
-          </div>
-          <p className="stage-help">Escrow GEN against a natural-language spec for a worker agent to fulfill.</p>
+      <hr />
 
-          <label className="field-label">Worker agent address</label>
-          <input className="input" placeholder="0x…" value={worker} onChange={(e) => setWorker(e.target.value)} />
+      <section>
+        <h2>4. Losing Party: Appeal</h2>
+        <p style={{ fontSize: 13, color: "#666", marginTop: -4 }}>
+          Only callable by the party who lost the dispute verdict, within the appeal window.
+          Triggers an independent, differently-reasoned re-adjudication (checklist-based
+          instead of holistic) whose result is final.
+        </p>
+        <input placeholder="Appeal reason" value={appealReason} onChange={(e) => setAppealReason(e.target.value)} style={{ width: "100%", marginBottom: 8 }} />
+        <button onClick={handleAppeal} disabled={!client}>Appeal → Re-adjudicate</button>
+      </section>
 
-          <label className="field-label">Job spec</label>
-          <textarea className="textarea input" placeholder="Natural-language requirements" value={spec} onChange={(e) => setSpec(e.target.value)} rows={3} />
+      <hr />
 
-          <label className="field-label">Escrow amount (GEN)</label>
-          <input className="input" placeholder="e.g. 7" value={amount} onChange={(e) => setAmount(e.target.value)} />
+      <section>
+        <h2>5. Either Party: Finalize</h2>
+        <p style={{ fontSize: 13, color: "#666", marginTop: -4 }}>
+          Callable once the appeal window has closed with no appeal filed. Pays out the
+          original verdict.
+        </p>
+        <button onClick={handleFinalize} disabled={!client}>Finalize Verdict</button>
+      </section>
 
-          <button className="btn btn-primary" onClick={handleCreateJob} disabled={!client || pendingAction === "create_job"}>
-            {pendingAction === "create_job" && <span className="spinner" />}
-            {pendingAction === "create_job" ? "Creating…" : "Create Job"}
-          </button>
-        </div>
+      <hr />
 
-        {/* 2. Submit Deliverable */}
-        <div className="stage" data-connected="true">
-          <div className="stage-header">
-            <span className="stage-number">2</span>
-            <IconUpload className="stage-icon" />
-            <h2 className="stage-title">Submit Deliverable</h2>
-            <span className="stage-role">Worker</span>
-          </div>
-          <p className="stage-help">Deliver the work — text, code, or a URL, pinned by content hash at submission time.</p>
+      <section>
+        <h2>Evidence-Unavailable Recovery</h2>
+        <input placeholder="Recovery reason" value={recoveryReason} onChange={(e) => setRecoveryReason(e.target.value)} style={{ width: "100%", marginBottom: 8 }} />
+        <button onClick={handleRecover} disabled={!client}>Request Fair Recovery (50/50 split)</button>
+      </section>
 
-          <label className="field-label">Job ID</label>
-          <input className="input" placeholder="e.g. 1" value={jobId} onChange={(e) => setJobId(e.target.value)} />
+      <hr />
 
-          <label className="field-label">Deliverable</label>
-          <textarea className="textarea input" placeholder="URL or text/code" value={deliverable} onChange={(e) => setDeliverable(e.target.value)} rows={3} />
+      <section>
+        <h2>Abandonment</h2>
+        <input placeholder="Abandonment reason" value={abandonReason} onChange={(e) => setAbandonReason(e.target.value)} style={{ width: "100%", marginBottom: 8 }} />
+        <button onClick={handleAbandon} disabled={!client}>Claim Abandoned (after grace period)</button>
+      </section>
 
-          <label className="checkbox-row">
-            <input type="checkbox" checked={isUrl} onChange={(e) => setIsUrl(e.target.checked)} />
-            Deliverable is a URL
-          </label>
-
-          <button className="btn btn-primary" onClick={handleSubmitWork} disabled={!client || pendingAction === "submit_work"}>
-            {pendingAction === "submit_work" && <span className="spinner" />}
-            {pendingAction === "submit_work" ? "Submitting…" : "Submit Work"}
-          </button>
-        </div>
-
-        {/* 3. Approve or Dispute */}
-        <div className="stage" data-connected="true">
-          <div className="stage-header">
-            <span className="stage-number">3</span>
-            <IconScale className="stage-icon" />
-            <h2 className="stage-title">Approve or Dispute</h2>
-            <span className="stage-role">Requester</span>
-          </div>
-          <p className="stage-help">Job ID above is shared across all remaining stages. Approve to pay directly, or dispute to trigger adjudication.</p>
-
-          <button className="btn btn-primary" onClick={handleApprove} disabled={!client || pendingAction === "approve"}>
-            {pendingAction === "approve" && <span className="spinner" />}
-            {pendingAction === "approve" ? "Approving…" : "Approve (pay worker)"}
-          </button>
-
-          <div style={{ marginTop: 16 }}>
-            <label className="field-label">Dispute reason</label>
-            <input className="input" placeholder="Why the deliverable doesn't satisfy the spec" value={reason} onChange={(e) => setReason(e.target.value)} />
-            <button className="btn btn-danger" onClick={handleDispute} disabled={!client || pendingAction === "dispute"}>
-              {pendingAction === "dispute" && <span className="spinner" />}
-              {pendingAction === "dispute" ? "Disputing…" : "Dispute → Adjudicate"}
-            </button>
-          </div>
-        </div>
-
-        {/* 4. Appeal */}
-        <div className="stage" data-connected="true">
-          <div className="stage-header">
-            <span className="stage-number">4</span>
-            <IconFlag className="stage-icon" />
-            <h2 className="stage-title">Appeal</h2>
-            <span className="stage-role">Losing party</span>
-          </div>
-          <p className="stage-help">
-            Only callable by the party who lost the dispute verdict, within the appeal window.
-            Triggers an independent, differently-reasoned re-adjudication whose result is final.
-          </p>
-
-          <label className="field-label">Appeal reason</label>
-          <input className="input" placeholder="Why this verdict should be reconsidered" value={appealReason} onChange={(e) => setAppealReason(e.target.value)} />
-          <button className="btn btn-outline" onClick={handleAppeal} disabled={!client || pendingAction === "appeal"}>
-            {pendingAction === "appeal" && <span className="spinner" />}
-            {pendingAction === "appeal" ? "Appealing…" : "Appeal → Re-adjudicate"}
-          </button>
-        </div>
-
-        {/* 5. Finalize */}
-        <div className="stage" data-connected="true">
-          <div className="stage-header">
-            <span className="stage-number">5</span>
-            <IconCheckCircle className="stage-icon" />
-            <h2 className="stage-title">Finalize</h2>
-            <span className="stage-role">Either party</span>
-          </div>
-          <p className="stage-help">Callable once the appeal window has closed with no appeal filed. Pays out the original verdict.</p>
-
-          <button className="btn btn-primary" onClick={handleFinalize} disabled={!client || pendingAction === "finalize"}>
-            {pendingAction === "finalize" && <span className="spinner" />}
-            {pendingAction === "finalize" ? "Finalizing…" : "Finalize Verdict"}
-          </button>
-        </div>
-
-        {/* Recovery */}
-        <div className="stage">
-          <div className="stage-header">
-            <IconLifeBuoy className="stage-icon" />
-            <h2 className="stage-title">Evidence-Unavailable Recovery</h2>
-          </div>
-          <p className="stage-help">If a disputed URL can't be verified against its submission-time snapshot, either party can request a fair, deterministic split.</p>
-
-          <label className="field-label">Recovery reason</label>
-          <input className="input" placeholder="e.g. content unrecoverable, split fairly" value={recoveryReason} onChange={(e) => setRecoveryReason(e.target.value)} />
-          <button className="btn btn-outline" onClick={handleRecover} disabled={!client || pendingAction === "recover_unavailable_job"}>
-            {pendingAction === "recover_unavailable_job" && <span className="spinner" />}
-            {pendingAction === "recover_unavailable_job" ? "Requesting…" : "Request Fair Recovery (50/50 split)"}
-          </button>
-        </div>
-
-        {/* Abandonment */}
-        <div className="stage">
-          <div className="stage-header">
-            <IconAlertTriangle className="stage-icon" />
-            <h2 className="stage-title">Abandonment</h2>
-          </div>
-          <p className="stage-help">If a job sits unactioned past the grace period, either party can reclaim escrow deterministically.</p>
-
-          <label className="field-label">Abandonment reason</label>
-          <input className="input" placeholder="e.g. worker never started" value={abandonReason} onChange={(e) => setAbandonReason(e.target.value)} />
-          <button className="btn btn-outline" onClick={handleAbandon} disabled={!client || pendingAction === "abandon_job"}>
-            {pendingAction === "abandon_job" && <span className="spinner" />}
-            {pendingAction === "abandon_job" ? "Claiming…" : "Claim Abandoned (after grace period)"}
-          </button>
-        </div>
-      </div>
-
-      {status && (
-        <div className={`toast ${status.tone === "error" ? "tone-error" : status.tone === "success" ? "tone-success" : ""}`}>
-          {status.text}
-        </div>
-      )}
+      {status && <p style={{ marginTop: 24, fontSize: 13, color: "#333" }}>{status}</p>}
     </div>
   );
 }
