@@ -53,6 +53,25 @@ export async function connectWallet() {
   return account;
 }
 
+// Human-readable name + chain id, for network-status messaging in the UI.
+export const REQUIRED_NETWORK_NAME = studionet.name ?? "GenLayer Studio";
+export const REQUIRED_CHAIN_ID_HEX = toHexChainId(studionet.id);
+
+// Returns the wallet's current chain id (hex string, e.g. "0x...") or null
+// if no wallet is present. Used to show clear "wrong network" guidance
+// instead of letting a chainId-mismatch error surface raw from a write call.
+export async function getCurrentChainIdHex() {
+  if (!window.ethereum) return null;
+  return window.ethereum.request({ method: "eth_chainId" });
+}
+
+export function onChainChanged(callback) {
+  if (!window.ethereum || !window.ethereum.on) return () => {};
+  const handler = (chainIdHex) => callback(chainIdHex);
+  window.ethereum.on("chainChanged", handler);
+  return () => window.ethereum.removeListener("chainChanged", handler);
+}
+
 export function getClient(account) {
   return createClient({
     chain: studionet,
