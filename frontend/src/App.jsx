@@ -17,6 +17,7 @@ import {
   recoverUnavailableJob,
   abandonJob,
   getJob,
+  txExplorerUrl,
   APPEAL_WINDOW_MS,
 } from "./genlayer.js";
 import {
@@ -29,6 +30,7 @@ import {
   IconLifeBuoy,
   IconAlertTriangle,
   IconWallet,
+  IconHistory,
 } from "./icons.jsx";
 import "./arbiter.css";
 
@@ -108,6 +110,30 @@ function ArbiterApp({ onBack }) {
   // "unknown" | "correct" | "wrong" | "no-wallet"
   const [networkStatus, setNetworkStatus] = useState("unknown");
 
+  const [txHistory, setTxHistory] = useState(() => {
+    try {
+      const saved = localStorage.getItem("arbiter_tx_history");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  function recordTx(action, tx, relatedJobId) {
+    setTxHistory((prev) => {
+      const next = [
+        { action, tx, jobId: relatedJobId || null, time: Date.now() },
+        ...prev,
+      ].slice(0, 50);
+      try {
+        localStorage.setItem("arbiter_tx_history", JSON.stringify(next));
+      } catch {
+        // storage full or unavailable -- history still works for this session
+      }
+      return next;
+    });
+  }
+
   async function checkNetwork() {
     const current = await getCurrentChainIdHex();
     if (current === null) {
@@ -174,6 +200,7 @@ function ArbiterApp({ onBack }) {
     try {
       const tx = await fn();
       setStatus({ text: `${successText} tx: ${tx}`, tone: "success" });
+      recordTx(actionName, tx, relatedJobId);
       if (relatedJobId !== undefined && relatedJobId !== "") {
         await refreshLookupIfSameJob(relatedJobId);
       }
@@ -511,6 +538,45 @@ function ArbiterApp({ onBack }) {
             {pendingAction === "abandon_job" ? "Claiming…" : "Claim Abandoned (after grace period)"}
           </button>
         </div>
+      </div>
+
+      {/* Transaction History */}
+      <div className="stage" style={{ marginTop: 4 }}>
+        <div className="stage-header">
+          <IconHistory className="stage-icon" />
+          <h2 className="stage-title">Transaction History</h2>
+        </div>
+        <p className="stage-help">
+          {txHistory.length === 0
+            ? "Actions you take in this browser will appear here."
+            : "Most recent first. Saved locally to this device/browser."}
+        </p>
+
+        {txHistory.length > 0 && (
+          <div className="history-list">
+            {txHistory.map((entry, i) => {
+              const url = txExplorerUrl(entry.tx);
+              return (
+                <div className="history-row" key={`${entry.tx}-${i}`}>
+                  <div className="history-main">
+                    <span className="history-action">{entry.action}</span>
+                    {entry.jobId && <span className="history-job">Job #{entry.jobId}</span>}
+                  </div>
+                  {url ? (
+                    <a className="history-hash" href={url} target="_blank" rel="noopener">
+                      {entry.tx.slice(0, 10)}…{entry.tx.slice(-6)}
+                    </a>
+                  ) : (
+                    <span className="history-hash history-hash-plain">
+                      {entry.tx.slice(0, 10)}…{entry.tx.slice(-6)}
+                    </span>
+                  )}
+                  <span className="history-time">{new Date(entry.time).toLocaleTimeString()}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {status && (

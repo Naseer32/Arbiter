@@ -161,3 +161,11 @@ export async function getJob(client, jobId) {
     args: [jobId],
   });
 }
+
+// Block explorer link for a tx hash, if Studio's chain config exposes one.
+export const EXPLORER_BASE_URL = studionet.blockExplorers?.default?.url ?? null;
+
+export function txExplorerUrl(txHash) {
+  if (!EXPLORER_BASE_URL || !txHash) return null;
+  return `${EXPLORER_BASE_URL.replace(/\/$/, "")}/tx/${txHash}`;
+}
