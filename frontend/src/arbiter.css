@@ -109,6 +109,41 @@ body {
   gap: 8px;
 }
 
+/* ---------- Network banner ---------- */
+
+.network-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 13px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.network-banner span {
+  flex: 1;
+  min-width: 180px;
+}
+
+.network-banner.tone-warn {
+  background: var(--danger-wash);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+}
+
+.network-banner.tone-info {
+  background: var(--info-wash);
+  border: 1px solid var(--info);
+  color: var(--info);
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 12.5px;
+}
+
 /* ---------- Pipeline / cards ---------- */
 
 .pipeline {
