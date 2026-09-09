@@ -16,6 +16,11 @@ This targets gltest's Studio-mode API (get_contract_factory / .transact() /
   - get_contract_balance() is a view for checking escrow movement without
     needing per-account balance access from the test harness
 
+IMPORTANT -- behavior change from the pre-appeal contract:
+  dispute() no longer settles the job immediately. It now parks the job in
+  "verdict_pending" with a `pending_verdict` field, and payout only happens
+  via appeal() or finalize(). Tests below reflect this.
+
 Adjust the `_extract_job_id` helper below to match exactly how your installed
 gltest version surfaces a write method's return value in the tx receipt --
 this has varied across releases, so treat it as the one thing to verify first
@@ -71,12 +76,32 @@ def _create_job(arbiter, requester, worker, spec, amount=JOB_AMOUNT):
     return _extract_job_id(tx)
 
 
+def _create_submitted_and_disputed_job(arbiter, requester, worker, spec, deliverable, dispute_reason):
+    """Shared setup for appeal/finalize tests: create -> submit -> dispute,
+    landing the job in verdict_pending."""
+    job_id = _create_job(arbiter, requester, worker, spec)
+
+    tx = arbiter.submit_work(
+        args=[job_id, deliverable, False], account=worker
+    ).transact()
+    assert tx_execution_succeeded(tx)
+
+    tx = arbiter.dispute(
+        args=[job_id, dispute_reason], account=requester
+    ).transact()
+    assert tx_execution_succeeded(tx)
+
+    return job_id
+
+
 def test_job_ids_are_one_based(arbiter, requester, worker):
     job_id = _create_job(arbiter, requester, worker, "write a haiku about escrow")
     assert job_id == 1, "first job created should have id 1, not 0"
 
 
 def test_approve_pays_worker(arbiter, requester, worker):
+    """Direct approval (no dispute) still settles immediately -- this path
+    is unaffected by the appeal-loop change."""
     job_id = _create_job(arbiter, requester, worker, "reverse a string in python")
 
     tx = arbiter.submit_work(
@@ -97,9 +122,10 @@ def test_approve_pays_worker(arbiter, requester, worker):
     )
 
 
-def test_dispute_with_mismatched_work_favors_requester(arbiter, requester, worker):
+def test_dispute_parks_in_verdict_pending_without_paying(arbiter, requester, worker):
     """Real LLM-based validator adjudication: deliverable clearly doesn't match
-    spec, so consensus should side with the requester."""
+    spec, so the holistic verdict should side with the requester -- but the
+    job should NOT pay out yet, it should wait for appeal or finalize."""
     job_id = _create_job(
         arbiter, requester, worker,
         "Write a Python function called add(a, b) that returns the sum of a and b",
@@ -110,6 +136,8 @@ def test_dispute_with_mismatched_work_favors_requester(arbiter, requester, worke
     ).transact()
     assert tx_execution_succeeded(tx)
 
+    balance_before = arbiter.get_contract_balance().call()
+
     tx = arbiter.dispute(
         args=[job_id, "deliverable is a poem, not the requested function"],
         account=requester,
@@ -117,8 +145,14 @@ def test_dispute_with_mismatched_work_favors_requester(arbiter, requester, worke
     assert tx_execution_succeeded(tx)
 
     job = arbiter.get_job(args=[job_id]).call()
-    assert job["status"] == "resolved"
-    assert job["payout_to"] == "requester"
+    assert job["status"] == "verdict_pending"
+    assert job["pending_verdict"] == "requester"
+    assert job["payout_to"] == ""
+    assert job["appeal_used"] is False
+    assert arbiter.get_contract_balance().call() == balance_before, (
+        "escrow should NOT have moved yet -- dispute only judges, it "
+        "doesn't settle"
+    )
 
 
 def test_dispute_evidence_unavailable_url(arbiter, requester, worker):
@@ -161,6 +195,74 @@ def test_recover_unavailable_job_splits_50_50(arbiter, requester, worker):
     assert job["payout_to"] == "split"
     assert job["recovery_used"] is True
     assert arbiter.get_contract_balance().call() < balance_before
+
+
+def test_appeal_by_winning_party_fails(arbiter, requester, worker):
+    """Only the losing party may appeal. Testable without any time delay --
+    fails on the sender check regardless of the appeal window."""
+    job_id = _create_submitted_and_disputed_job(
+        arbiter, requester, worker,
+        "Write a Python function called add(a, b) that returns the sum of a and b",
+        "Here is a poem about clouds and sunsets.",
+        "deliverable is a poem, not the requested function",
+    )
+    with pytest.raises(Exception):
+        arbiter.appeal(
+            args=[job_id, "trying to appeal my own win"], account=requester
+        ).transact()
+
+
+def test_appeal_by_outsider_fails(arbiter, requester, worker, outsider):
+    job_id = _create_submitted_and_disputed_job(
+        arbiter, requester, worker,
+        "Write a Python function called add(a, b) that returns the sum of a and b",
+        "Here is a poem about clouds and sunsets.",
+        "deliverable is a poem, not the requested function",
+    )
+    with pytest.raises(Exception):
+        arbiter.appeal(
+            args=[job_id, "not my case"], account=outsider
+        ).transact()
+
+
+def test_finalize_before_window_closed_fails(arbiter, requester, worker):
+    """Finalize should refuse to run while the appeal window is still open.
+    Testable immediately, no time delay needed -- APPEAL_WINDOW is 24h by
+    default, so calling finalize right after dispute() is always 'too early'
+    in a normal test run."""
+    job_id = _create_submitted_and_disputed_job(
+        arbiter, requester, worker,
+        "Write a Python function called add(a, b) that returns the sum of a and b",
+        "Here is a poem about clouds and sunsets.",
+        "deliverable is a poem, not the requested function",
+    )
+    with pytest.raises(Exception):
+        arbiter.finalize(args=[job_id], account=requester).transact()
+
+    job = arbiter.get_job(args=[job_id]).call()
+    assert job["status"] == "verdict_pending"
+
+
+def test_finalize_by_outsider_fails(arbiter, requester, worker, outsider):
+    job_id = _create_submitted_and_disputed_job(
+        arbiter, requester, worker,
+        "Write a Python function called add(a, b) that returns the sum of a and b",
+        "Here is a poem about clouds and sunsets.",
+        "deliverable is a poem, not the requested function",
+    )
+    with pytest.raises(Exception):
+        arbiter.finalize(args=[job_id], account=outsider).transact()
+
+
+# NOTE: full end-to-end appeal (checklist re-adjudication actually settling
+# the job) and full end-to-end finalize (after the real 24h window elapses)
+# are NOT exercised here -- same limitation as abandon_job's full timeout
+# path below. Both were verified manually against a live Studio deployment
+# with a temporarily shortened APPEAL_WINDOW; see TESTING.md Tests 5 and 6
+# for those runs' tx hashes and results. If your gltest version exposes a
+# time-travel cheatcode (check `direct_vm` / Direct Mode docs for your
+# installed version), these are good candidates to convert to full
+# end-to-end automated tests.
 
 
 def test_abandon_open_job_too_early_fails(arbiter, requester, worker):
