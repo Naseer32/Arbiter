@@ -21,6 +21,14 @@ IMPORTANT -- behavior change from the pre-appeal contract:
   "verdict_pending" with a `pending_verdict` field, and payout only happens
   via appeal() or finalize(). Tests below reflect this.
 
+NOTE: as of this commit, this suite could not be executed in a Termux
+(Android) environment -- gltest 0.29.2's schema-fetch (default and
+hosted-studio clients both) failed silently with no underlying error
+surfaced, despite all HTTPS requests to Studio succeeding at the transport
+level. This appears to be a library/environment-specific issue, not a
+problem with the contract or test logic itself -- see TESTING.md for full
+live on-chain evidence covering every path these tests check.
+
 Adjust the `_extract_job_id` helper below to match exactly how your installed
 gltest version surfaces a write method's return value in the tx receipt --
 this has varied across releases, so treat it as the one thing to verify first
