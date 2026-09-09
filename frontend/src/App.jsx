@@ -3,6 +3,11 @@ import {
   connectWallet,
   getClient,
   onAccountsChanged,
+  onChainChanged,
+  getCurrentChainIdHex,
+  REQUIRED_NETWORK_NAME,
+  REQUIRED_CHAIN_ID_HEX,
+  ensureStudioNetwork,
   createJob,
   submitWork,
   approveJob,
@@ -100,8 +105,24 @@ function ArbiterApp({ onBack }) {
   const [lookupId, setLookupId] = useState("");
   const [jobData, setJobData] = useState(null);
 
+  // "unknown" | "correct" | "wrong" | "no-wallet"
+  const [networkStatus, setNetworkStatus] = useState("unknown");
+
+  async function checkNetwork() {
+    const current = await getCurrentChainIdHex();
+    if (current === null) {
+      setNetworkStatus("no-wallet");
+    } else if (current.toLowerCase() === REQUIRED_CHAIN_ID_HEX.toLowerCase()) {
+      setNetworkStatus("correct");
+    } else {
+      setNetworkStatus("wrong");
+    }
+  }
+
   useEffect(() => {
-    const unsubscribe = onAccountsChanged((newAccount) => {
+    checkNetwork();
+
+    const unsubscribeAccounts = onAccountsChanged((newAccount) => {
       if (!newAccount) {
         setAccount(null);
         setClient(null);
@@ -112,15 +133,50 @@ function ArbiterApp({ onBack }) {
       setClient(getClient(newAccount));
       setStatus({ text: `Switched account: ${newAccount}`, tone: "success" });
     });
-    return unsubscribe;
+
+    const unsubscribeChain = onChainChanged(() => {
+      checkNetwork();
+    });
+
+    return () => {
+      unsubscribeAccounts();
+      unsubscribeChain();
+    };
   }, []);
 
-  async function run(actionName, fn, successText) {
+  async function handleSwitchNetwork() {
+    try {
+      await ensureStudioNetwork();
+      await checkNetwork();
+    } catch (e) {
+      setStatus({ text: `Network switch failed: ${e.message}`, tone: "error" });
+    }
+  }
+
+  // Re-fetches the currently looked-up job if it's the same job an action
+  // just acted on, so the status panel reflects the new on-chain state
+  // without the person needing to manually click "Get Job" again.
+  async function refreshLookupIfSameJob(actedOnJobId) {
+    if (!client) return;
+    if (String(actedOnJobId) !== String(lookupId)) return;
+    try {
+      const data = await getJob(client, Number(actedOnJobId));
+      setJobData(data);
+    } catch {
+      // silent -- the action's own success/error status already reported;
+      // a failed refresh here shouldn't overwrite that message
+    }
+  }
+
+  async function run(actionName, fn, successText, relatedJobId) {
     setPendingAction(actionName);
     setStatus(null);
     try {
       const tx = await fn();
       setStatus({ text: `${successText} tx: ${tx}`, tone: "success" });
+      if (relatedJobId !== undefined && relatedJobId !== "") {
+        await refreshLookupIfSameJob(relatedJobId);
+      }
     } catch (e) {
       setStatus({ text: `${actionName} failed: ${e.message}`, tone: "error" });
     } finally {
@@ -135,6 +191,7 @@ function ArbiterApp({ onBack }) {
       const acc = await connectWallet();
       setAccount(acc);
       setClient(getClient(acc));
+      await checkNetwork();
       setStatus({ text: `Connected: ${acc}`, tone: "success" });
     } catch (e) {
       setStatus({ text: `Connect failed: ${e.message}`, tone: "error" });
@@ -144,6 +201,8 @@ function ArbiterApp({ onBack }) {
   }
 
   function handleCreateJob() {
+    // No relatedJobId here -- the new job's id isn't known client-side
+    // until it's looked up, so there's nothing to auto-refresh yet.
     run("create_job", async () => {
       const amountWei = BigInt(Math.floor(parseFloat(amount || "0") * 1e18));
       return createJob(client, worker, spec, amountWei);
@@ -151,31 +210,31 @@ function ArbiterApp({ onBack }) {
   }
 
   function handleSubmitWork() {
-    run("submit_work", () => submitWork(client, Number(jobId), deliverable, isUrl), "Work submitted.");
+    run("submit_work", () => submitWork(client, Number(jobId), deliverable, isUrl), "Work submitted.", jobId);
   }
 
   function handleApprove() {
-    run("approve", () => approveJob(client, Number(jobId)), "Approved, worker paid.");
+    run("approve", () => approveJob(client, Number(jobId)), "Approved, worker paid.", jobId);
   }
 
   function handleDispute() {
-    run("dispute", () => disputeJob(client, Number(jobId), reason), "Dispute submitted — verdict pending, appeal window now open.");
+    run("dispute", () => disputeJob(client, Number(jobId), reason), "Dispute submitted — verdict pending, appeal window now open.", jobId);
   }
 
   function handleAppeal() {
-    run("appeal", () => appealJob(client, Number(jobId), appealReason), "Appeal submitted for independent re-adjudication.");
+    run("appeal", () => appealJob(client, Number(jobId), appealReason), "Appeal submitted for independent re-adjudication.", jobId);
   }
 
   function handleFinalize() {
-    run("finalize", () => finalizeJob(client, Number(jobId)), "Job finalized, original verdict paid out.");
+    run("finalize", () => finalizeJob(client, Number(jobId)), "Job finalized, original verdict paid out.", jobId);
   }
 
   function handleRecover() {
-    run("recover_unavailable_job", () => recoverUnavailableJob(client, Number(jobId), recoveryReason), "Recovery requested (50/50 split).");
+    run("recover_unavailable_job", () => recoverUnavailableJob(client, Number(jobId), recoveryReason), "Recovery requested (50/50 split).", jobId);
   }
 
   function handleAbandon() {
-    run("abandon_job", () => abandonJob(client, Number(jobId), abandonReason), "Abandonment claim submitted.");
+    run("abandon_job", () => abandonJob(client, Number(jobId), abandonReason), "Abandonment claim submitted.", jobId);
   }
 
   async function handleLookup() {
@@ -242,6 +301,27 @@ function ArbiterApp({ onBack }) {
           </div>
         )}
       </div>
+
+      {networkStatus === "wrong" && (
+        <div className="network-banner tone-warn">
+          <IconAlertTriangle style={{ width: 15, height: 15 }} />
+          <span>
+            Wrong network — Arbiter runs on <strong>{REQUIRED_NETWORK_NAME}</strong>. Transactions will fail until you switch.
+          </span>
+          <button className="btn btn-outline btn-sm" onClick={handleSwitchNetwork}>
+            Switch Network
+          </button>
+        </div>
+      )}
+
+      {networkStatus === "no-wallet" && (
+        <div className="network-banner tone-info">
+          <IconWallet style={{ width: 15, height: 15 }} />
+          <span>
+            No wallet detected. Install a wallet like MetaMask to use Arbiter — it runs on <strong>{REQUIRED_NETWORK_NAME}</strong>.
+          </span>
+        </div>
+      )}
 
       <div className="pipeline">
         {/* Lookup */}
