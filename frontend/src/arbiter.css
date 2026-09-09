@@ -1,3 +1,6 @@
+@import url('https://api.fontshare.com/v2/css?f[]=general-sans@500,600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
+
 :root {
   --bg: #0c0d10;
   --surface: #131519;
@@ -8,22 +11,30 @@
   --text-dim: #9297a1;
   --text-faint: #5c616b;
 
+  /* Arbiter Blue -- the one accent for actions, links, focus states,
+     and "in review" status. Not gold: gold is reserved below,
+     exclusively for the verdict/finalization moment. */
+  --accent: #6f97ff;
+  --accent-hover: #8aa9ff;
+  --accent-wash: rgba(111, 151, 255, 0.12);
+
+  /* Reserved -- verdict / finalization state ONLY (tone-pending,
+     and any future "finalized" treatment). Do not use for buttons,
+     numbering, checkboxes, or focus rings -- see brand rules. */
   --gold: #c9a227;
   --gold-dim: #8a7020;
   --gold-wash: rgba(201, 162, 39, 0.1);
 
   --success: #4ade80;
   --success-wash: rgba(74, 222, 128, 0.1);
-  --danger: #f87171;
-  --danger-wash: rgba(248, 113, 113, 0.1);
-  --info: #7da6ff;
-  --info-wash: rgba(125, 166, 255, 0.1);
+  --danger: #e2726a;
+  --danger-wash: rgba(226, 114, 106, 0.1);
 
   --radius: 10px;
   --radius-sm: 6px;
-  --font-display: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+  --font-display: 'General Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --font-mono: 'JetBrains Mono', ui-monospace, "SF Mono", Menlo, monospace;
 }
 
 * {
@@ -84,7 +95,7 @@ body {
   gap: 10px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius);
   padding: 8px 14px 8px 10px;
 }
 
@@ -140,8 +151,8 @@ body {
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  border: 1px solid var(--gold-dim);
-  color: var(--gold);
+  border: 1px solid var(--border-soft);
+  color: var(--text-dim);
   font-size: 12px;
   font-weight: 600;
   display: flex;
@@ -222,7 +233,7 @@ body {
 .input:focus,
 .textarea:focus {
   outline: none;
-  border-color: var(--gold-dim);
+  border-color: var(--accent);
 }
 
 .textarea {
@@ -240,7 +251,7 @@ body {
 }
 
 .checkbox-row input {
-  accent-color: var(--gold);
+  accent-color: var(--accent);
 }
 
 /* ---------- Buttons ---------- */
@@ -270,12 +281,12 @@ body {
 }
 
 .btn-primary {
-  background: var(--gold);
-  color: #12100a;
+  background: var(--accent);
+  color: #0c0d10;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #d8ae2c;
+  background: var(--accent-hover);
 }
 
 .btn-outline {
@@ -301,7 +312,7 @@ body {
 .btn-ghost {
   background: none;
   border: none;
-  color: var(--gold);
+  color: var(--accent);
   padding: 4px 0;
   font-size: 13px;
 }
@@ -362,7 +373,9 @@ body {
   font-weight: 600;
 }
 
-.status-head.tone-open { background: var(--info-wash); color: var(--info); }
+/* tone-pending = verdict pending / appeal window open -- the one
+   status that gets the reserved gold treatment, per brand rules. */
+.status-head.tone-open { background: var(--accent-wash); color: var(--accent); }
 .status-head.tone-pending { background: var(--gold-wash); color: var(--gold); }
 .status-head.tone-success { background: var(--success-wash); color: var(--success); }
 .status-head.tone-danger { background: var(--danger-wash); color: var(--danger); }
@@ -431,9 +444,10 @@ body {
 }
 
 .landing-eyebrow {
+  font-family: var(--font-mono);
   font-size: 12px;
-  color: var(--gold);
-  font-weight: 600;
+  color: var(--text-dim);
+  font-weight: 500;
   margin-bottom: 14px;
   letter-spacing: 0.02em;
 }
@@ -499,8 +513,8 @@ body {
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  border: 1px solid var(--gold-dim);
-  color: var(--gold);
+  border: 1px solid var(--border-soft);
+  color: var(--text-dim);
   font-size: 11.5px;
   font-weight: 600;
   display: flex;
@@ -514,7 +528,7 @@ a:focus-visible,
 button:focus-visible,
 input:focus-visible,
 textarea:focus-visible {
-  outline: 2px solid var(--gold);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
