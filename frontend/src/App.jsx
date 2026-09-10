@@ -234,13 +234,26 @@ function ArbiterApp({ onBack }) {
     }
   }
 
-  function handleCreateJob() {
-    // No relatedJobId here -- the new job's id isn't known client-side
-    // until it's looked up, so there's nothing to auto-refresh yet.
-    run("create_job", async () => {
+  async function handleCreateJob() {
+    setPendingAction("create_job");
+    setStatus(null);
+    try {
       const amountWei = BigInt(Math.floor(parseFloat(amount || "0") * 1e18));
-      return createJob(client, worker, spec, amountWei);
-    }, "Job created.");
+      const { tx, jobId: newJobId } = await createJob(client, worker, spec, amountWei);
+      const hasId = newJobId !== null && newJobId !== undefined;
+      setStatus({
+        text: `${hasId ? `Job ${newJobId} created successfully.` : "Job created."} tx: ${tx}`,
+        tone: "success",
+      });
+      recordTx("create_job", tx, hasId ? String(newJobId) : null);
+      if (hasId) {
+        setJobId(String(newJobId));
+      }
+    } catch (e) {
+      setStatus({ text: `create_job failed: ${e.message}`, tone: "error" });
+    } finally {
+      setPendingAction(null);
+    }
   }
 
   function handleSubmitWork() {

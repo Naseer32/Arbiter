@@ -1,5 +1,6 @@
 import { createClient } from "genlayer-js";
 import { studionet } from "genlayer-js/chains";
+import { TransactionStatus } from "genlayer-js/types";
 
 // Deployed on GenLayer Studio (studio.genlayer.com)
 export const CONTRACT_ADDRESS = "0x34390D6ffEb7450727d71fBfad22cFE7095dAac9";
@@ -89,13 +90,42 @@ export function onAccountsChanged(callback) {
   return () => window.ethereum.removeListener("accountsChanged", handler);
 }
 
+// create_job is the only write method with a meaningful return value (the
+// new job's 1-based id), so unlike the other write helpers below, this one
+// waits for the receipt and tries to extract it -- mirroring the same
+// fallback shape tests/test_arbiter_payout.py's _extract_job_id() already
+// uses, since the exact receipt shape has varied across SDK versions.
+// If extraction fails for any reason, jobId comes back null and the caller
+// falls back to a generic "Job created" message rather than breaking.
+function _extractReturnValue(receipt) {
+  if (receipt?.data?.return_value !== undefined) return receipt.data.return_value;
+  if (receipt?.return_value !== undefined) return receipt.return_value;
+  if (receipt?.result?.return_value !== undefined) return receipt.result.return_value;
+  return null;
+}
+
 export async function createJob(client, worker, spec, amountWei) {
-  return client.writeContract({
+  const tx = await client.writeContract({
     address: CONTRACT_ADDRESS,
     functionName: "create_job",
     args: [worker, spec],
     value: amountWei,
   });
+
+  let jobId = null;
+  try {
+    const receipt = await client.waitForTransactionReceipt({
+      hash: tx,
+      status: TransactionStatus.ACCEPTED,
+    });
+    jobId = _extractReturnValue(receipt);
+  } catch {
+    // Receipt lookup failing doesn't mean the job creation failed -- the
+    // write itself already succeeded above. Just means we can't show the
+    // id immediately; the person can still look it up manually.
+  }
+
+  return { tx, jobId };
 }
 
 export async function submitWork(client, jobId, deliverable, isUrl) {
