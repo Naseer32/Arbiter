@@ -122,7 +122,7 @@ function ArbiterApp({ onBack }) {
   function recordTx(action, tx, relatedJobId) {
     setTxHistory((prev) => {
       const next = [
-        { action, tx, jobId: relatedJobId || null, time: Date.now() },
+        { action, tx, jobId: relatedJobId || null, time: Date.now(), account },
         ...prev,
       ].slice(0, 50);
       try {
@@ -133,6 +133,13 @@ function ArbiterApp({ onBack }) {
       return next;
     });
   }
+
+  // Only show history for the currently connected wallet -- entries from
+  // a previously connected account stay saved (in case the user switches
+  // back) but shouldn't display as if the current wallet performed them.
+  const visibleHistory = account
+    ? txHistory.filter((e) => e.account && e.account.toLowerCase() === account.toLowerCase())
+    : [];
 
   async function checkNetwork() {
     const current = await getCurrentChainIdHex();
@@ -547,14 +554,14 @@ function ArbiterApp({ onBack }) {
           <h2 className="stage-title">Transaction History</h2>
         </div>
         <p className="stage-help">
-          {txHistory.length === 0
-            ? "Actions you take in this browser will appear here."
-            : "Most recent first. Saved locally to this device/browser."}
+          {visibleHistory.length === 0
+            ? "Actions taken by the connected wallet will appear here."
+            : "Most recent first, for the connected wallet. Saved locally to this device/browser."}
         </p>
 
-        {txHistory.length > 0 && (
+        {visibleHistory.length > 0 && (
           <div className="history-list">
-            {txHistory.map((entry, i) => {
+            {visibleHistory.map((entry, i) => {
               const url = txExplorerUrl(entry.tx);
               return (
                 <div className="history-row" key={`${entry.tx}-${i}`}>
