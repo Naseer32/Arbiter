@@ -90,20 +90,16 @@ export function onAccountsChanged(callback) {
   return () => window.ethereum.removeListener("accountsChanged", handler);
 }
 
-// create_job is the only write method with a meaningful return value (the
-// new job's 1-based id), so unlike the other write helpers below, this one
-// waits for the receipt and tries to extract it -- mirroring the same
-// fallback shape tests/test_arbiter_payout.py's _extract_job_id() already
-// uses, since the exact receipt shape has varied across SDK versions.
-// If extraction fails for any reason, jobId comes back null and the caller
-// falls back to a generic "Job created" message rather than breaking.
-function _extractReturnValue(receipt) {
-  if (receipt?.data?.return_value !== undefined) return receipt.data.return_value;
-  if (receipt?.return_value !== undefined) return receipt.return_value;
-  if (receipt?.result?.return_value !== undefined) return receipt.result.return_value;
-  return null;
-}
-
+// create_job's actual return value is encoded in GenLayer's custom
+// calldata binary format (same scheme used for call arguments), not plain
+// JSON or hex -- decoding it client-side would mean reimplementing that
+// codec in JS. Instead, since job ids are sequential and 1-based, we wait
+// for the tx to confirm and then read job_count(), which *is* the new
+// job's id right after creation -- using the same read-decoding path that
+// already works correctly for get_job(). Caveat: if another job is created
+// by someone else in the brief window between this tx confirming and the
+// job_count() read, the count could reflect that job instead. Low risk for
+// this app's expected usage, and far simpler than a custom binary decoder.
 export async function createJob(client, worker, spec, amountWei) {
   const tx = await client.writeContract({
     address: CONTRACT_ADDRESS,
@@ -113,22 +109,24 @@ export async function createJob(client, worker, spec, amountWei) {
   });
 
   let jobId = null;
-  let debugReceipt = null;
   try {
-    const receipt = await client.waitForTransactionReceipt({
+    await client.waitForTransactionReceipt({
       hash: tx,
       status: TransactionStatus.ACCEPTED,
-      fullTransaction: true,
     });
-    jobId = _extractReturnValue(receipt);
-    debugReceipt = receipt;
+    const count = await client.readContract({
+      address: CONTRACT_ADDRESS,
+      functionName: "job_count",
+      args: [],
+    });
+    jobId = count !== null && count !== undefined ? count.toString() : null;
   } catch {
-    // Receipt lookup failing doesn't mean the job creation failed -- the
-    // write itself already succeeded above. Just means we can't show the
-    // id immediately; the person can still look it up manually.
+    // Either the receipt wait or the job_count read failed -- doesn't mean
+    // job creation itself failed (the write above already succeeded).
+    // Just means we can't show the id immediately; it's still look-up-able.
   }
 
-  return { tx, jobId, debugReceipt };
+  return { tx, jobId };
 }
 
 export async function submitWork(client, jobId, deliverable, isUrl) {
