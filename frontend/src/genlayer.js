@@ -194,7 +194,12 @@ export async function getJob(client, jobId) {
 }
 
 // Block explorer link for a tx hash, if Studio's chain config exposes one.
-export const EXPLORER_BASE_URL = studionet.blockExplorers?.default?.url ?? null;
+// The SDK's default explorer (studionet.blockExplorers.default.url) points
+// to a third-party-hosted site that has been paused by its owner as of this
+// writing -- confirmed working alternative: explorer-studio.genlayer.com,
+// GenLayer's own Studio explorer. Hardcoded rather than trusting the SDK
+// default, since that default is the one currently broken.
+export const EXPLORER_BASE_URL = "https://explorer-studio.genlayer.com";
 
 export function txExplorerUrl(txHash) {
   if (!EXPLORER_BASE_URL || !txHash) return null;
