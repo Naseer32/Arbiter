@@ -113,19 +113,21 @@ export async function createJob(client, worker, spec, amountWei) {
   });
 
   let jobId = null;
+  let debugReceipt = null;
   try {
     const receipt = await client.waitForTransactionReceipt({
       hash: tx,
       status: TransactionStatus.ACCEPTED,
     });
     jobId = _extractReturnValue(receipt);
+    debugReceipt = receipt;
   } catch {
     // Receipt lookup failing doesn't mean the job creation failed -- the
     // write itself already succeeded above. Just means we can't show the
     // id immediately; the person can still look it up manually.
   }
 
-  return { tx, jobId };
+  return { tx, jobId, debugReceipt };
 }
 
 export async function submitWork(client, jobId, deliverable, isUrl) {
