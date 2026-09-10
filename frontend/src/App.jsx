@@ -490,7 +490,10 @@ function ArbiterApp({ onBack }) {
             <h2 className="stage-title">Approve or Dispute</h2>
             <span className="stage-role">Requester</span>
           </div>
-          <p className="stage-help">Job ID above is shared across all remaining stages. Approve to pay directly, or dispute to trigger adjudication.</p>
+          <p className="stage-help">Approve to pay directly, or dispute to trigger adjudication.</p>
+
+          <label className="field-label">Job ID</label>
+          <input className="input" placeholder="e.g. 1" value={jobId} onChange={(e) => setJobId(e.target.value)} />
 
           <button className="btn btn-primary" onClick={handleApprove} disabled={!client || pendingAction === "approve"}>
             {pendingAction === "approve" && <span className="spinner" />}
@@ -520,6 +523,9 @@ function ArbiterApp({ onBack }) {
             Triggers an independent, differently-reasoned re-adjudication whose result is final.
           </p>
 
+          <label className="field-label">Job ID</label>
+          <input className="input" placeholder="e.g. 1" value={jobId} onChange={(e) => setJobId(e.target.value)} />
+
           <label className="field-label">Appeal reason</label>
           <input className="input" placeholder="Why this verdict should be reconsidered" value={appealReason} onChange={(e) => setAppealReason(e.target.value)} />
           <button className="btn btn-outline" onClick={handleAppeal} disabled={!client || pendingAction === "appeal"}>
@@ -538,6 +544,9 @@ function ArbiterApp({ onBack }) {
           </div>
           <p className="stage-help">Callable once the appeal window has closed with no appeal filed. Pays out the original verdict.</p>
 
+          <label className="field-label">Job ID</label>
+          <input className="input" placeholder="e.g. 1" value={jobId} onChange={(e) => setJobId(e.target.value)} />
+
           <button className="btn btn-primary" onClick={handleFinalize} disabled={!client || pendingAction === "finalize"}>
             {pendingAction === "finalize" && <span className="spinner" />}
             {pendingAction === "finalize" ? "Finalizing…" : "Finalize Verdict"}
@@ -551,6 +560,9 @@ function ArbiterApp({ onBack }) {
             <h2 className="stage-title">Evidence-Unavailable Recovery</h2>
           </div>
           <p className="stage-help">If a disputed URL can't be verified against its submission-time snapshot, either party can request a fair, deterministic split.</p>
+
+          <label className="field-label">Job ID</label>
+          <input className="input" placeholder="e.g. 1" value={jobId} onChange={(e) => setJobId(e.target.value)} />
 
           <label className="field-label">Recovery reason</label>
           <input className="input" placeholder="e.g. content unrecoverable, split fairly" value={recoveryReason} onChange={(e) => setRecoveryReason(e.target.value)} />
@@ -567,6 +579,9 @@ function ArbiterApp({ onBack }) {
             <h2 className="stage-title">Abandonment</h2>
           </div>
           <p className="stage-help">If a job sits unactioned past the grace period, either party can reclaim escrow deterministically.</p>
+
+          <label className="field-label">Job ID</label>
+          <input className="input" placeholder="e.g. 1" value={jobId} onChange={(e) => setJobId(e.target.value)} />
 
           <label className="field-label">Abandonment reason</label>
           <input className="input" placeholder="e.g. worker never started" value={abandonReason} onChange={(e) => setAbandonReason(e.target.value)} />
