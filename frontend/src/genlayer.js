@@ -118,6 +118,7 @@ export async function createJob(client, worker, spec, amountWei) {
     const receipt = await client.waitForTransactionReceipt({
       hash: tx,
       status: TransactionStatus.ACCEPTED,
+      fullTransaction: true,
     });
     jobId = _extractReturnValue(receipt);
     debugReceipt = receipt;

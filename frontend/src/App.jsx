@@ -242,7 +242,7 @@ function ArbiterApp({ onBack }) {
       const { tx, jobId: newJobId, debugReceipt } = await createJob(client, worker, spec, amountWei);
       const hasId = newJobId !== null && newJobId !== undefined;
       const debugText = !hasId && debugReceipt
-        ? ` [DEBUG receipt: ${JSON.stringify(debugReceipt, (_k, v) => (typeof v === "bigint" ? `${v.toString()}n` : v)).slice(0, 500)}]`
+        ? ` [DEBUG receipt: ${JSON.stringify(debugReceipt, (_k, v) => (typeof v === "bigint" ? `${v.toString()}n` : v)).slice(0, 3000)}]`
         : "";
       setStatus({
         text: `${hasId ? `Job ${newJobId} created successfully.` : "Job created."} tx: ${tx}${debugText}`,
