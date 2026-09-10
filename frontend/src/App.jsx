@@ -35,13 +35,30 @@ import {
 import "./arbiter.css";
 
 export default function App() {
-  const [view, setView] = useState("landing"); // "landing" | "app"
+  // Persisted so a page refresh doesn't bounce the person back to the
+  // landing view once they've launched the app.
+  const [view, setView] = useState(() => {
+    try {
+      return localStorage.getItem("arbiter_view") === "app" ? "app" : "landing";
+    } catch {
+      return "landing";
+    }
+  });
 
-  if (view === "landing") {
-    return <Landing onLaunch={() => setView("app")} />;
+  function goTo(next) {
+    setView(next);
+    try {
+      localStorage.setItem("arbiter_view", next);
+    } catch {
+      // storage unavailable -- view still switches for this session
+    }
   }
 
-  return <ArbiterApp onBack={() => setView("landing")} />;
+  if (view === "landing") {
+    return <Landing onLaunch={() => goTo("app")} />;
+  }
+
+  return <ArbiterApp onBack={() => goTo("landing")} />;
 }
 
 function Landing({ onLaunch }) {
