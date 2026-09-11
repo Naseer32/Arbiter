@@ -1,7 +1,7 @@
 # { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
 
 """
-Arbiter — Agent-to-Agent Escrow, GenLayer Intelligent Contract
+Arbiter - Agent-to-Agent Escrow, GenLayer Intelligent Contract
 
 Flow:
   1. Requester agent posts a job with a spec + escrows GEN
