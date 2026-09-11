@@ -229,6 +229,44 @@ All ACCEPTED/FINALIZED, SUCCESS, consensus result Accepted.
 
 ---
 
+## Test 7 — Milestone Job (Parent/Child Auto-Resolve)
+Tests that a job posted with multiple milestones correctly creates a parent container plus independent child jobs, that each child behaves as a completely normal job with zero special-casing, and that the parent auto-resolves the instant every milestone is done.
+
+Contract: `0x5cDFabc39bd5b90FB1b89d4F5b448f0BdD8c3Afa`
+
+Requester: `0x53b20B...f12A96`
+Worker: `0x5E3120...dE6b35`
+Milestones:
+- "Design the landing page mockup" — 3 GEN
+- "Implement the landing page in code" — 4 GEN
+Total escrow: 7 GEN
+
+Step 1 — create_milestone_job: Result: parent (job 1) created with `status: "milestones_open"`, `is_milestone_parent: true`, `milestone_count: 2`. `get_milestones(1)` correctly returns child job IDs `[2, 3]`.
+
+| Step | Tx |
+|---|---|
+| create_milestone_job | `0x0acdb1bb06f31a53da55bee56300b992a0d2463e904ecca2a448442282f87254` |
+
+Step 2 — First milestone (job 2): Deliverable: "Mockup delivered: wireframe.png". Submitted, then approved directly.
+
+Result: `status: "resolved"`, `payout_to: "worker"` — 3 GEN paid to worker. Parent (job 1) checked after this step: still `status: "milestones_open"`, correctly staying open while milestone 2 is pending.
+
+| Step | Tx |
+|---|---|
+| submit_work | `0x13ac64db6ec59090a18785bdb41612a2aa3f6bc41deabb4e037f19bd5d000415` |
+| approve | `0xca82b66a8fa0d9e153be635d4c2d8a8545db25986f11a8761bb21100548f97ce` |
+
+Step 3 — Second milestone (job 3), triggering auto-resolve: Deliverable: "Landing page implemented: github.com/example/repo". Submitted, then approved directly.
+
+Result: `status: "resolved"`, `payout_to: "worker"` — 4 GEN paid to worker. Parent (job 1) checked after this step: `status: "resolved"` — auto-resolved the instant the last milestone completed, no manual intervention.
+
+| Step | Tx |
+|---|---|
+| submit_work | `0x8b897bca5c6c57aa2b70c2352f075f557bb3d05b9415c16ddb8108c8e349d01c` |
+| approve | `0xa4f691f43ff9e8f68d79deee856befc03ca74ce170a63f63db7745d56cfd473a` |
+
+All FINALIZED, SUCCESS.
+
 ## Summary
 
 | Scenario | Outcome | Verified |
@@ -244,6 +282,10 @@ All ACCEPTED/FINALIZED, SUCCESS, consensus result Accepted.
 | Finalize after window closed, no appeal | Original verdict paid out | ✅ |
 | Post-upgrade happy path re-check | Still resolves/pays immediately, unaffected | ✅ |
 
+| Milestone job creation (parent + children) | Parent `milestones_open`, children independently addressable via `get_milestones` | ✅ |
+| Milestone children behave as normal jobs | submit_work/approve worked with zero special-casing | ✅ |
+| Parent stays open mid-milestones | Confirmed `milestones_open` after 1st of 2 approved | ✅ |
+| Parent auto-resolves on last milestone | `status: "resolved"` with no manual step | ✅ |
 All core payout paths, the full appeal-loop state machine, and both
 time-window guards have been exercised against live GenLayer Studio
 consensus, including negative tests confirming enforcement in both
