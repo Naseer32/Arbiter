@@ -36,6 +36,48 @@ import {
 } from "./icons.jsx";
 import "./arbiter.css";
 
+// --- Input validation helpers (UI layer only -- these never touch how a
+// transaction is built or signed; they just decide whether we call into
+// genlayer.js at all, so a typo can't silently sign against the wrong job,
+// address, or amount). ---
+
+// jobId must be a whole, positive number with no stray characters. Job ids
+// are 1-based on-chain (see createJob's recovery comment in genlayer.js),
+// and 0 is reserved as the parent_job_id sentinel meaning "not a milestone
+// child" -- it never refers to a real job, so it's rejected here rather
+// than being sent to the contract and failing there instead.
+// Number("") is 0 and Number(" 3 ") is 3, so a naive Number(jobId) check
+// would happily "succeed" on an empty field or send unintended values --
+// this requires an explicit, fully-numeric string first.
+function parseJobId(value) {
+  const trimmed = String(value ?? "").trim();
+  if (!/^\d+$/.test(trimmed)) return null;
+  const n = Number(trimmed);
+  return Number.isSafeInteger(n) && n >= 1 ? n : null;
+}
+
+// Standard 20-byte hex address shape. Doesn't guarantee the address is a
+// real/funded account, but catches empty fields, typos, and pasted
+// non-address text before a job is escrowed to it.
+function isValidAddress(value) {
+  return /^0x[a-fA-F0-9]{40}$/.test(String(value ?? "").trim());
+}
+
+// Converts a decimal GEN string to wei (18 decimals) using string/BigInt
+// arithmetic rather than parseFloat(amount) * 1e18. Binary floating point
+// can't represent most decimals exactly -- e.g. 0.1 * 1e18 evaluates to
+// 100000000000000016 in JS -- so the old approach could silently escrow a
+// slightly wrong amount. Returns null for empty/negative/zero/malformed
+// input or more than 18 fractional digits (GEN's precision).
+function parseAmountToWei(value) {
+  const trimmed = String(value ?? "").trim();
+  if (!/^\d+(\.\d+)?$/.test(trimmed)) return null;
+  const [whole, frac = ""] = trimmed.split(".");
+  if (frac.length > 18) return null;
+  const wei = BigInt(whole || "0") * 10n ** 18n + BigInt(frac.padEnd(18, "0") || "0");
+  return wei > 0n ? wei : null;
+}
+
 export default function App() {
   // Persisted so a page refresh doesn't bounce the person back to the
   // landing view once they've launched the app.
@@ -269,10 +311,22 @@ function ArbiterApp({ onBack }) {
   }
 
   async function handleCreateJob() {
+    if (!isValidAddress(worker)) {
+      setStatus({ text: "Worker agent address must be a valid 0x… (40 hex chars) address.", tone: "error" });
+      return;
+    }
+    if (!spec.trim()) {
+      setStatus({ text: "Job spec can't be empty.", tone: "error" });
+      return;
+    }
+    const amountWei = parseAmountToWei(amount);
+    if (amountWei === null) {
+      setStatus({ text: "Escrow amount must be a positive number (up to 18 decimal places).", tone: "error" });
+      return;
+    }
     setPendingAction("create_job");
     setStatus(null);
     try {
-      const amountWei = BigInt(Math.floor(parseFloat(amount || "0") * 1e18));
       const { tx, jobId: newJobId } = await createJob(client, worker, spec, amountWei);
       const hasId = newJobId !== null && newJobId !== undefined;
       setStatus({
@@ -290,32 +344,77 @@ function ArbiterApp({ onBack }) {
     }
   }
 
+  // Shared guard: bails out with an inline error instead of calling into
+  // genlayer.js when the Job ID field isn't a valid non-negative integer.
+  function withJobId(fn) {
+    const id = parseJobId(jobId);
+    if (id === null) {
+      setStatus({ text: "Job ID must be a positive whole number (1 or greater).", tone: "error" });
+      return;
+    }
+    fn(id);
+  }
+
   function handleSubmitWork() {
-    run("submit_work", () => submitWork(client, Number(jobId), deliverable, isUrl), "Work submitted.", jobId);
+    withJobId((id) => {
+      if (!deliverable.trim()) {
+        setStatus({ text: "Deliverable can't be empty.", tone: "error" });
+        return;
+      }
+      run("submit_work", () => submitWork(client, id, deliverable, isUrl), "Work submitted.", id);
+    });
   }
 
   function handleApprove() {
-    run("approve", () => approveJob(client, Number(jobId)), "Approved, worker paid.", jobId);
+    withJobId((id) => {
+      run("approve", () => approveJob(client, id), "Approved, worker paid.", id);
+    });
   }
 
   function handleDispute() {
-    run("dispute", () => disputeJob(client, Number(jobId), reason), "Dispute submitted — verdict pending, appeal window now open.", jobId);
+    withJobId((id) => {
+      if (!reason.trim()) {
+        setStatus({ text: "Dispute reason can't be empty.", tone: "error" });
+        return;
+      }
+      run("dispute", () => disputeJob(client, id, reason), "Dispute submitted — verdict pending, appeal window now open.", id);
+    });
   }
 
   function handleAppeal() {
-    run("appeal", () => appealJob(client, Number(jobId), appealReason), "Appeal submitted for independent re-adjudication.", jobId);
+    withJobId((id) => {
+      if (!appealReason.trim()) {
+        setStatus({ text: "Appeal reason can't be empty.", tone: "error" });
+        return;
+      }
+      run("appeal", () => appealJob(client, id, appealReason), "Appeal submitted for independent re-adjudication.", id);
+    });
   }
 
   function handleFinalize() {
-    run("finalize", () => finalizeJob(client, Number(jobId)), "Job finalized, original verdict paid out.", jobId);
+    withJobId((id) => {
+      run("finalize", () => finalizeJob(client, id), "Job finalized, original verdict paid out.", id);
+    });
   }
 
   function handleRecover() {
-    run("recover_unavailable_job", () => recoverUnavailableJob(client, Number(jobId), recoveryReason), "Recovery requested (50/50 split).", jobId);
+    withJobId((id) => {
+      if (!recoveryReason.trim()) {
+        setStatus({ text: "Recovery reason can't be empty.", tone: "error" });
+        return;
+      }
+      run("recover_unavailable_job", () => recoverUnavailableJob(client, id, recoveryReason), "Recovery requested (50/50 split).", id);
+    });
   }
 
   function handleAbandon() {
-    run("abandon_job", () => abandonJob(client, Number(jobId), abandonReason), "Abandonment claim submitted.", jobId);
+    withJobId((id) => {
+      if (!abandonReason.trim()) {
+        setStatus({ text: "Abandonment reason can't be empty.", tone: "error" });
+        return;
+      }
+      run("abandon_job", () => abandonJob(client, id, abandonReason), "Abandonment claim submitted.", id);
+    });
   }
 
   // ---- Milestone jobs ----
@@ -346,15 +445,43 @@ function ArbiterApp({ onBack }) {
     }
   }
 
-  const milestoneTotal = milestoneRows.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0);
+  // Precise wei-based total for display -- invalid/empty rows contribute 0
+  // rather than corrupting the sum with NaN, and this reuses the same
+  // exact BigInt conversion handleCreateMilestoneJob validates against, so
+  // the displayed total always matches what would actually be escrowed.
+  const milestoneTotalWei = milestoneRows.reduce((sum, r) => {
+    const wei = parseAmountToWei(r.amount);
+    return sum + (wei ?? 0n);
+  }, 0n);
+  const milestoneTotal = formatWeiToGen(milestoneTotalWei.toString());
 
   async function handleCreateMilestoneJob() {
+    if (!isValidAddress(milestoneWorker)) {
+      setStatus({ text: "Worker agent address must be a valid 0x… (40 hex chars) address.", tone: "error" });
+      return;
+    }
+    if (milestoneRows.length < 2) {
+      setStatus({ text: "At least 2 milestones are required.", tone: "error" });
+      return;
+    }
+    if (milestoneRows.some((r) => !r.spec.trim())) {
+      setStatus({ text: "Every milestone needs a spec.", tone: "error" });
+      return;
+    }
+    const amountsWei = [];
+    for (const row of milestoneRows) {
+      const wei = parseAmountToWei(row.amount);
+      if (wei === null) {
+        setStatus({ text: "Every milestone amount must be a positive number (up to 18 decimal places).", tone: "error" });
+        return;
+      }
+      amountsWei.push(wei);
+    }
     setPendingAction("create_milestone_job");
     setStatus(null);
     setMilestoneResult(null);
     try {
       const specs = milestoneRows.map((r) => r.spec);
-      const amountsWei = milestoneRows.map((r) => BigInt(Math.floor(parseFloat(r.amount || "0") * 1e18)));
       const { tx, parentJobId, milestoneJobIds } = await createMilestoneJob(client, milestoneWorker, specs, amountsWei);
       setStatus({
         text: `${parentJobId ? `Milestone job created — parent #${parentJobId}.` : "Milestone job created."} tx: ${tx}`,
@@ -373,12 +500,17 @@ function ArbiterApp({ onBack }) {
   }
 
   async function loadMilestoneGroup(parentIdValue) {
-    if (!client || !parentIdValue) return;
-    setMsParentId(String(parentIdValue));
+    if (!client) return;
+    const parentId = parseJobId(parentIdValue);
+    if (parentId === null) {
+      setStatus({ text: "Parent Job ID must be a positive whole number (1 or greater).", tone: "error" });
+      return;
+    }
+    setMsParentId(String(parentId));
     setMsLoading(true);
     try {
-      const parentData = await getJob(client, Number(parentIdValue));
-      const childIds = await getMilestones(client, Number(parentIdValue));
+      const parentData = await getJob(client, parentId);
+      const childIds = await getMilestones(client, parentId);
       const children = await Promise.all(
         (childIds || []).map(async (rawId) => {
           const idNum = Number(rawId.toString ? rawId.toString() : rawId);
@@ -398,7 +530,6 @@ function ArbiterApp({ onBack }) {
   }
 
   function handleLoadMilestoneGroupClick() {
-    if (!msParentId) return;
     loadMilestoneGroup(msParentId);
   }
 
@@ -411,6 +542,10 @@ function ArbiterApp({ onBack }) {
 
   async function handleMilestoneSubmit(childId) {
     const draft = msChildDrafts[childId] || { deliverable: "", isUrl: false };
+    if (!draft.deliverable.trim()) {
+      setStatus({ text: "Deliverable can't be empty.", tone: "error" });
+      return;
+    }
     setMsChildPending((p) => ({ ...p, [childId]: "submit_work" }));
     setStatus(null);
     try {
@@ -441,10 +576,15 @@ function ArbiterApp({ onBack }) {
   }
 
   async function handleLookup() {
+    const id = parseJobId(lookupId);
+    if (id === null) {
+      setStatus({ text: "Job ID must be a positive whole number (1 or greater).", tone: "error" });
+      return;
+    }
     setPendingAction("lookup");
     setStatus(null);
     try {
-      const data = await getJob(client, Number(lookupId));
+      const data = await getJob(client, id);
       setJobData(data);
     } catch (e) {
       setStatus({ text: `get_job failed: ${e.message}`, tone: "error" });
