@@ -3,7 +3,7 @@ import { studionet } from "genlayer-js/chains";
 import { TransactionStatus } from "genlayer-js/types";
 
 // Deployed on GenLayer Studio (studio.genlayer.com)
-export const CONTRACT_ADDRESS = "0x34390D6ffEb7450727d71fBfad22cFE7095dAac9";
+export const CONTRACT_ADDRESS = "0x5cDFabc39bd5b90FB1b89d4F5b448f0BdD8c3Afa";
 
 // Must match APPEAL_WINDOW in arbiter_contract.py exactly -- this is a
 // display-only value (for showing an estimated deadline in the UI) and
@@ -127,6 +127,67 @@ export async function createJob(client, worker, spec, amountWei) {
   }
 
   return { tx, jobId };
+}
+
+// create_milestone_job() appends (1 + specs.length) new jobs in a single
+// call: the parent container, immediately followed by one child per
+// milestone. Same id-recovery approach as createJob() above, extended for
+// that fact -- job_count() right after confirmation gives the *last*
+// child's id, so the parent's id is that count minus the number of
+// milestones. Same caveat as createJob(): if another job lands in the
+// brief window between confirmation and this read, the arithmetic could
+// be thrown off by that job instead.
+export async function createMilestoneJob(client, worker, specs, amountsWei) {
+  const total = amountsWei.reduce((sum, a) => sum + BigInt(a), 0n);
+
+  const tx = await client.writeContract({
+    address: CONTRACT_ADDRESS,
+    functionName: "create_milestone_job",
+    args: [worker, specs, amountsWei],
+    value: total,
+  });
+
+  let parentJobId = null;
+  let milestoneJobIds = [];
+  try {
+    await client.waitForTransactionReceipt({
+      hash: tx,
+      status: TransactionStatus.ACCEPTED,
+    });
+    const count = await client.readContract({
+      address: CONTRACT_ADDRESS,
+      functionName: "job_count",
+      args: [],
+    });
+    if (count !== null && count !== undefined) {
+      const countBig = BigInt(count.toString());
+      const parentBig = countBig - BigInt(specs.length);
+      parentJobId = parentBig.toString();
+      // get_milestones() is the source of truth for child ids -- prefer it
+      // over computing offsets locally, since it reads the actual on-chain
+      // parent_job_id links rather than assuming a gap-free sequential run.
+      const children = await client.readContract({
+        address: CONTRACT_ADDRESS,
+        functionName: "get_milestones",
+        args: [parentBig],
+      });
+      milestoneJobIds = (children || []).map((c) => c.toString());
+    }
+  } catch {
+    // Either the receipt wait or the recovery reads failed -- doesn't mean
+    // job creation itself failed (the write above already succeeded).
+    // Just means we can't show the ids immediately; still look-up-able.
+  }
+
+  return { tx, parentJobId, milestoneJobIds };
+}
+
+export async function getMilestones(client, parentJobId) {
+  return client.readContract({
+    address: CONTRACT_ADDRESS,
+    functionName: "get_milestones",
+    args: [parentJobId],
+  });
 }
 
 export async function submitWork(client, jobId, deliverable, isUrl) {

@@ -17,6 +17,8 @@ import {
   recoverUnavailableJob,
   abandonJob,
   getJob,
+  createMilestoneJob,
+  getMilestones,
   txExplorerUrl,
   APPEAL_WINDOW_MS,
 } from "./genlayer.js";
@@ -123,6 +125,21 @@ function ArbiterApp({ onBack }) {
 
   const [lookupId, setLookupId] = useState("");
   const [jobData, setJobData] = useState(null);
+
+  // ---- Milestone jobs ----
+  const [milestoneWorker, setMilestoneWorker] = useState("");
+  const [milestoneRows, setMilestoneRows] = useState([
+    { spec: "", amount: "" },
+    { spec: "", amount: "" },
+  ]);
+  const [milestoneResult, setMilestoneResult] = useState(null); // { parentJobId, milestoneJobIds }
+
+  const [msParentId, setMsParentId] = useState("");
+  const [msLoading, setMsLoading] = useState(false);
+  const [msParent, setMsParent] = useState(null);
+  const [msChildren, setMsChildren] = useState([]); // [{ id, data }]
+  const [msChildDrafts, setMsChildDrafts] = useState({}); // id -> { deliverable, isUrl }
+  const [msChildPending, setMsChildPending] = useState({}); // id -> "submit_work" | "approve"
 
   // "unknown" | "correct" | "wrong" | "no-wallet"
   const [networkStatus, setNetworkStatus] = useState("unknown");
@@ -301,6 +318,128 @@ function ArbiterApp({ onBack }) {
     run("abandon_job", () => abandonJob(client, Number(jobId), abandonReason), "Abandonment claim submitted.", jobId);
   }
 
+  // ---- Milestone jobs ----
+
+  function addMilestoneRow() {
+    setMilestoneRows((rows) => [...rows, { spec: "", amount: "" }]);
+  }
+
+  function removeMilestoneRow(index) {
+    setMilestoneRows((rows) => (rows.length <= 2 ? rows : rows.filter((_, i) => i !== index)));
+  }
+
+  function updateMilestoneRow(index, field, value) {
+    setMilestoneRows((rows) => rows.map((r, i) => (i === index ? { ...r, [field]: value } : r)));
+  }
+
+  function formatWeiToGen(weiStr) {
+    try {
+      const wei = BigInt(weiStr);
+      const base = 1000000000000000000n;
+      const whole = wei / base;
+      const frac = wei % base;
+      if (frac === 0n) return whole.toString();
+      const fracStr = frac.toString().padStart(18, "0").replace(/0+$/, "");
+      return `${whole.toString()}.${fracStr}`;
+    } catch {
+      return weiStr;
+    }
+  }
+
+  const milestoneTotal = milestoneRows.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0);
+
+  async function handleCreateMilestoneJob() {
+    setPendingAction("create_milestone_job");
+    setStatus(null);
+    setMilestoneResult(null);
+    try {
+      const specs = milestoneRows.map((r) => r.spec);
+      const amountsWei = milestoneRows.map((r) => BigInt(Math.floor(parseFloat(r.amount || "0") * 1e18)));
+      const { tx, parentJobId, milestoneJobIds } = await createMilestoneJob(client, milestoneWorker, specs, amountsWei);
+      setStatus({
+        text: `${parentJobId ? `Milestone job created — parent #${parentJobId}.` : "Milestone job created."} tx: ${tx}`,
+        tone: "success",
+      });
+      recordTx("create_milestone_job", tx, parentJobId ? String(parentJobId) : null);
+      if (parentJobId) {
+        setMilestoneResult({ parentJobId, milestoneJobIds });
+        await loadMilestoneGroup(parentJobId);
+      }
+    } catch (e) {
+      setStatus({ text: `create_milestone_job failed: ${e.message}`, tone: "error" });
+    } finally {
+      setPendingAction(null);
+    }
+  }
+
+  async function loadMilestoneGroup(parentIdValue) {
+    if (!client || !parentIdValue) return;
+    setMsParentId(String(parentIdValue));
+    setMsLoading(true);
+    try {
+      const parentData = await getJob(client, Number(parentIdValue));
+      const childIds = await getMilestones(client, Number(parentIdValue));
+      const children = await Promise.all(
+        (childIds || []).map(async (rawId) => {
+          const idNum = Number(rawId.toString ? rawId.toString() : rawId);
+          const data = await getJob(client, idNum);
+          return { id: idNum, data };
+        })
+      );
+      setMsParent(parentData);
+      setMsChildren(children);
+    } catch (e) {
+      setStatus({ text: `Loading milestones failed: ${e.message}`, tone: "error" });
+      setMsParent(null);
+      setMsChildren([]);
+    } finally {
+      setMsLoading(false);
+    }
+  }
+
+  function handleLoadMilestoneGroupClick() {
+    if (!msParentId) return;
+    loadMilestoneGroup(msParentId);
+  }
+
+  function updateMilestoneDraft(childId, field, value) {
+    setMsChildDrafts((prev) => ({
+      ...prev,
+      [childId]: { deliverable: "", isUrl: false, ...(prev[childId] || {}), [field]: value },
+    }));
+  }
+
+  async function handleMilestoneSubmit(childId) {
+    const draft = msChildDrafts[childId] || { deliverable: "", isUrl: false };
+    setMsChildPending((p) => ({ ...p, [childId]: "submit_work" }));
+    setStatus(null);
+    try {
+      const tx = await submitWork(client, childId, draft.deliverable, draft.isUrl);
+      setStatus({ text: `Milestone #${childId} submitted. tx: ${tx}`, tone: "success" });
+      recordTx("submit_work", tx, String(childId));
+      await loadMilestoneGroup(msParentId);
+    } catch (e) {
+      setStatus({ text: `submit_work failed: ${e.message}`, tone: "error" });
+    } finally {
+      setMsChildPending((p) => ({ ...p, [childId]: null }));
+    }
+  }
+
+  async function handleMilestoneApprove(childId) {
+    setMsChildPending((p) => ({ ...p, [childId]: "approve" }));
+    setStatus(null);
+    try {
+      const tx = await approveJob(client, childId);
+      setStatus({ text: `Milestone #${childId} approved, worker paid. tx: ${tx}`, tone: "success" });
+      recordTx("approve", tx, String(childId));
+      await loadMilestoneGroup(msParentId);
+    } catch (e) {
+      setStatus({ text: `approve failed: ${e.message}`, tone: "error" });
+    } finally {
+      setMsChildPending((p) => ({ ...p, [childId]: null }));
+    }
+  }
+
   async function handleLookup() {
     setPendingAction("lookup");
     setStatus(null);
@@ -428,6 +567,34 @@ function ArbiterApp({ onBack }) {
               <pre className="job-json">{JSON.stringify(jobData, null, 2)}</pre>
             </div>
           )}
+
+          {jobData && jobData.is_milestone_parent && (
+            <div className="milestone-parent-summary">
+              This is a milestone parent job with{" "}
+              <span className="milestone-parent-badge">{jobData.milestone_count}</span> milestones.
+              <button
+                className="btn btn-outline btn-sm"
+                onClick={() => loadMilestoneGroup(lookupId)}
+                disabled={!client || msLoading}
+              >
+                {msLoading ? "Loading…" : "View Milestones ↓"}
+              </button>
+            </div>
+          )}
+
+          {jobData && !jobData.is_milestone_parent && jobData.parent_job_id !== "0" && (
+            <div className="milestone-parent-summary">
+              Milestone #{jobData.milestone_index} of a job under parent{" "}
+              <span className="milestone-parent-badge">#{jobData.parent_job_id}</span>.
+              <button
+                className="btn btn-outline btn-sm"
+                onClick={() => loadMilestoneGroup(jobData.parent_job_id)}
+                disabled={!client || msLoading}
+              >
+                {msLoading ? "Loading…" : "View Full Group ↓"}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* 1. Post a Job */}
@@ -453,6 +620,186 @@ function ArbiterApp({ onBack }) {
             {pendingAction === "create_job" && <span className="spinner" />}
             {pendingAction === "create_job" ? "Creating…" : "Create Job"}
           </button>
+        </div>
+
+        {/* Post a Milestone Job (alternate to stage 1, for multi-payment engagements) */}
+        <div className="stage">
+          <div className="stage-header">
+            <IconFilePlus className="stage-icon" />
+            <h2 className="stage-title">Post a Milestone Job</h2>
+            <span className="stage-role">Requester</span>
+          </div>
+          <p className="stage-help">
+            For multi-part engagements: escrow GEN across 2 or more milestones, each with its own
+            spec and payment. Every milestone becomes its own independent job — submitted,
+            approved, or disputed separately, paying out as soon as it resolves. The parent
+            auto-resolves once every milestone is done.
+          </p>
+
+          <label className="field-label">Worker agent address</label>
+          <input
+            className="input"
+            placeholder="0x…"
+            value={milestoneWorker}
+            onChange={(e) => setMilestoneWorker(e.target.value)}
+          />
+
+          <label className="field-label">Milestones</label>
+          {milestoneRows.map((row, i) => (
+            <div className="milestone-row" key={i}>
+              <textarea
+                className="textarea input milestone-row-spec"
+                placeholder={`Milestone ${i + 1} spec`}
+                value={row.spec}
+                onChange={(e) => updateMilestoneRow(i, "spec", e.target.value)}
+                rows={2}
+              />
+              <input
+                className="input milestone-row-amount"
+                placeholder="GEN"
+                value={row.amount}
+                onChange={(e) => updateMilestoneRow(i, "amount", e.target.value)}
+              />
+              <button
+                type="button"
+                className="milestone-row-remove"
+                onClick={() => removeMilestoneRow(i)}
+                disabled={milestoneRows.length <= 2}
+                title={milestoneRows.length <= 2 ? "At least 2 milestones are required" : "Remove milestone"}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+
+          <button type="button" className="btn btn-outline btn-sm milestone-add-row" onClick={addMilestoneRow}>
+            + Add Milestone
+          </button>
+
+          <div className="milestone-total">Total escrow: {milestoneTotal || 0} GEN</div>
+
+          <button
+            className="btn btn-primary"
+            onClick={handleCreateMilestoneJob}
+            disabled={!client || pendingAction === "create_milestone_job"}
+          >
+            {pendingAction === "create_milestone_job" && <span className="spinner" />}
+            {pendingAction === "create_milestone_job" ? "Creating…" : "Create Milestone Job"}
+          </button>
+
+          {milestoneResult && (
+            <div className="milestone-created-banner">
+              Created parent #{milestoneResult.parentJobId} with milestones:{" "}
+              {milestoneResult.milestoneJobIds.map((id) => `#${id}`).join(", ")}. See the panel below to
+              submit and approve each one.
+            </div>
+          )}
+        </div>
+
+        {/* Milestone Progress: dedicated submit/approve UI per milestone child,
+            rather than reusing the single-job "Job ID" fields below. */}
+        <div className="stage">
+          <div className="stage-header">
+            <IconScale className="stage-icon" />
+            <h2 className="stage-title">Milestone Progress</h2>
+          </div>
+          <p className="stage-help">
+            Load a milestone job by its parent ID to submit and approve each milestone individually.
+          </p>
+
+          <div className="lookup-row">
+            <input
+              className="input"
+              placeholder="Parent Job ID"
+              value={msParentId}
+              onChange={(e) => setMsParentId(e.target.value)}
+            />
+            <button className="btn btn-outline" onClick={handleLoadMilestoneGroupClick} disabled={!client || msLoading}>
+              {msLoading ? <span className="spinner" /> : <IconSearch className="stage-icon" style={{ width: 15, height: 15 }} />}
+              {msLoading ? "Loading…" : "Load Milestones"}
+            </button>
+          </div>
+
+          {msParent && (
+            <div className="milestone-parent-summary">
+              Parent status: <span className="milestone-parent-badge">{msParent.status}</span>
+              {msParent.status === "milestones_open" && " — stays open until every milestone below resolves."}
+              {msParent.status === "resolved" && " — all milestones complete."}
+            </div>
+          )}
+
+          {msChildren.length > 0 && (
+            <div className="milestone-list">
+              {msChildren.map(({ id, data }) => {
+                const childInfo = statusInfo(data);
+                const draft = msChildDrafts[id] || { deliverable: "", isUrl: false };
+                const pending = msChildPending[id];
+                return (
+                  <div className="milestone-card" key={id}>
+                    <div className="milestone-card-head">
+                      <span className="milestone-card-index">
+                        #{id} · Milestone {data.milestone_index}
+                      </span>
+                      <span className="milestone-card-spec">{data.spec}</span>
+                      <span className="milestone-card-amount">{formatWeiToGen(data.amount)} GEN</span>
+                      {childInfo && (
+                        <span className={`milestone-card-badge tone-${childInfo.tone}`}>{data.status}</span>
+                      )}
+                    </div>
+
+                    <div className="milestone-card-body">
+                      {data.status === "open" && (
+                        <>
+                          <label className="field-label">Deliverable (worker)</label>
+                          <textarea
+                            className="textarea input"
+                            placeholder="URL or text/code"
+                            value={draft.deliverable}
+                            onChange={(e) => updateMilestoneDraft(id, "deliverable", e.target.value)}
+                            rows={2}
+                          />
+                          <label className="checkbox-row">
+                            <input
+                              type="checkbox"
+                              checked={draft.isUrl}
+                              onChange={(e) => updateMilestoneDraft(id, "isUrl", e.target.checked)}
+                            />
+                            Deliverable is a URL
+                          </label>
+                          <button
+                            className="btn btn-primary btn-sm"
+                            onClick={() => handleMilestoneSubmit(id)}
+                            disabled={!client || pending === "submit_work"}
+                          >
+                            {pending === "submit_work" && <span className="spinner" />}
+                            {pending === "submit_work" ? "Submitting…" : "Submit Work"}
+                          </button>
+                        </>
+                      )}
+
+                      {data.status === "submitted" && (
+                        <button
+                          className="btn btn-primary btn-sm"
+                          onClick={() => handleMilestoneApprove(id)}
+                          disabled={!client || pending === "approve"}
+                        >
+                          {pending === "approve" && <span className="spinner" />}
+                          {pending === "approve" ? "Approving…" : "Approve (pay worker)"}
+                        </button>
+                      )}
+
+                      {data.status !== "open" && data.status !== "submitted" && (
+                        <span className="milestone-card-note">
+                          {childInfo ? childInfo.validActions : ""} — use the standard panels above with Job ID{" "}
+                          {id} for dispute, appeal, finalize, or recovery.
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* 2. Submit Deliverable */}
