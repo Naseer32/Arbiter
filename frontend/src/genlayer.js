@@ -2,7 +2,19 @@ import { createClient } from "genlayer-js";
 import { studionet } from "genlayer-js/chains";
 import { TransactionStatus } from "genlayer-js/types";
 
-// Deployed on GenLayer Studio (studio.genlayer.com)
+// Deployed on GenLayer Studio DEV (studio-dev.genlayer.com), chain id 61997 --
+// NOT the production Studio. Built from the SDK's `studionet` object with
+// the dev-specific id/name/RPC overridden, so anything else studionet
+// exposes (nativeCurrency, etc.) still comes through unchanged.
+const studioDevChain = {
+  ...studionet,
+  id: 61997,
+  name: "GenLayer Studio (Dev)",
+  rpcUrls: {
+    default: { http: ["https://studio-dev.genlayer.com/api"] },
+  },
+};
+
 export const CONTRACT_ADDRESS = "0x7FE6B2AC00dbe9857E91fEfD3A280C59C1a267b1";
 
 // Must match APPEAL_WINDOW in arbiter_contract.py exactly -- this is a
@@ -13,12 +25,9 @@ export const CONTRACT_ADDRESS = "0x7FE6B2AC00dbe9857E91fEfD3A280C59C1a267b1";
 // 24 * 60 * 60 * 1000 (the default below) before final submission.
 export const APPEAL_WINDOW_MS = 24 * 60 * 60 * 1000;
 
-// Make sure the wallet is actively on GenLayer Studio before signing --
+// Make sure the wallet is actively on GenLayer Studio Dev before signing --
 // genlayer-js's client requires the wallet's current chain to match, or
 // write calls fail with "chainId should be same as current chainId".
-// Pull chain id / RPC / explorer straight from genlayer-js's own `studionet`
-// object instead of hardcoding them -- hardcoded values drifted from what
-// the SDK actually uses and caused a chainId/RPC mismatch.
 function toHexChainId(id) {
   return "0x" + id.toString(16);
 }
@@ -26,16 +35,16 @@ function toHexChainId(id) {
 export async function ensureStudioNetwork() {
   if (!window.ethereum) throw new Error("No injected wallet found (e.g. MetaMask).");
   const rpcUrl =
-    studionet.rpcUrls?.default?.http?.[0] ?? studionet.rpcUrls?.[0];
-  const explorerUrl = studionet.blockExplorers?.default?.url;
+    studioDevChain.rpcUrls?.default?.http?.[0] ?? studioDevChain.rpcUrls?.[0];
+  const explorerUrl = studioDevChain.blockExplorers?.default?.url;
 
   await window.ethereum.request({
     method: "wallet_addEthereumChain",
     params: [
       {
-        chainId: toHexChainId(studionet.id),
-        chainName: studionet.name ?? "GenLayer Studio",
-        nativeCurrency: studionet.nativeCurrency ?? {
+        chainId: toHexChainId(studioDevChain.id),
+        chainName: studioDevChain.name ?? "GenLayer Studio (Dev)",
+        nativeCurrency: studioDevChain.nativeCurrency ?? {
           name: "GEN",
           symbol: "GEN",
           decimals: 18,
@@ -55,8 +64,8 @@ export async function connectWallet() {
 }
 
 // Human-readable name + chain id, for network-status messaging in the UI.
-export const REQUIRED_NETWORK_NAME = studionet.name ?? "GenLayer Studio";
-export const REQUIRED_CHAIN_ID_HEX = toHexChainId(studionet.id);
+export const REQUIRED_NETWORK_NAME = studioDevChain.name ?? "GenLayer Studio (Dev)";
+export const REQUIRED_CHAIN_ID_HEX = toHexChainId(studioDevChain.id);
 
 // Returns the wallet's current chain id (hex string, e.g. "0x...") or null
 // if no wallet is present. Used to show clear "wrong network" guidance
@@ -75,7 +84,7 @@ export function onChainChanged(callback) {
 
 export function getClient(account) {
   return createClient({
-    chain: studionet,
+    chain: studioDevChain,
     account,
   });
 }
@@ -254,13 +263,9 @@ export async function getJob(client, jobId) {
   });
 }
 
-// Block explorer link for a tx hash, if Studio's chain config exposes one.
-// The SDK's default explorer (studionet.blockExplorers.default.url) points
-// to a third-party-hosted site that has been paused by its owner as of this
-// writing -- confirmed working alternative: explorer-studio.genlayer.com,
-// GenLayer's own Studio explorer. Hardcoded rather than trusting the SDK
-// default, since that default is the one currently broken.
-export const EXPLORER_BASE_URL = "https://explorer-studio.genlayer.com";
+// Block explorer link for a tx hash. Pointed at the Dev Studio explorer
+// since the contract is deployed there, not on production Studio.
+export const EXPLORER_BASE_URL = "https://explorer-studio-dev.genlayer.com";
 
 export function txExplorerUrl(txHash) {
   if (!EXPLORER_BASE_URL || !txHash) return null;
