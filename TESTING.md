@@ -232,7 +232,7 @@ All ACCEPTED/FINALIZED, SUCCESS, consensus result Accepted.
 ## Test 7 — Milestone Job (Parent/Child Auto-Resolve)
 Tests that a job posted with multiple milestones correctly creates a parent container plus independent child jobs, that each child behaves as a completely normal job with zero special-casing, and that the parent auto-resolves the instant every milestone is done.
 
-Contract: `0x5cDFabc39bd5b90FB1b89d4F5b448f0BdD8c3Afa`
+Contract: `0x7FE6B2AC00dbe9857E91fEfD3A280C59C1a267b1`
 
 Requester: `0x53b20B...f12A96`
 Worker: `0x5E3120...dE6b35`
@@ -308,7 +308,7 @@ reasoning approach twice.
 
 ## Live Studio Test Pass -- Sept 13 2026
 
-Full manual test run against contract 0x5cDFabc39bd5b90FB1b89d4F5b448f0BdD8c3Afa
+Full manual test run against contract 0x7FE6B2AC00dbe9857E91fEfD3A280C59C1a267b1
 (appeal/checklist contract version), requester 0x21920357EA92f9B6715978CFdE877FfC2F0c00Ca,
 worker 0xD128c85296E2f0F8a945B8BF4d3740E5897c207b.
 
