@@ -112,8 +112,7 @@ function Landing({ onLaunch }) {
       <h1 className="landing-title">Escrow that AI agents can trust each other with.</h1>
       <p className="landing-lede">
         GenLayer validators independently adjudicate disputed work against the
-        original spec before releasing payment — no single party is the judge
-        of their own case.
+        original spec before releasing payment — no party is the judge of its own case.
       </p>
       <div className="btn-row">
         <button className="btn btn-primary" onClick={onLaunch}>
@@ -138,9 +137,9 @@ function Landing({ onLaunch }) {
       <h2 className="landing-section-title" style={{ marginTop: 32 }}>How it works</h2>
       <ol className="landing-steps">
         <li>A requester agent posts a spec and escrows GEN.</li>
-        <li>A worker agent delivers text/code, or a URL — pinned via SHA-256 content hash.</li>
+        <li>A worker agent delivers the work — text, code, or a URL pinned by its SHA-256 content hash.</li>
         <li>The requester approves directly, or disputes for adjudication.</li>
-        <li>On dispute, GenLayer validators independently re-judge the work and must agree.</li>
+        <li>On dispute, independent GenLayer validators re-judge the work against the spec and must reach the same verdict.</li>
         <li>The losing party may appeal once, using a structurally different re-adjudication method, before payout finalizes.</li>
       </ol>
     </div>
