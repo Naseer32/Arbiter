@@ -1,55 +1,54 @@
-# { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
-
-"""
-Arbiter - Agent-to-Agent Escrow, GenLayer Intelligent Contract
-
-Flow:
-  1. Requester agent posts a job with a spec + escrows GEN
-  2. Worker agent submits work (text OR a URL)
-  3. Requester approves or disputes
-  4. On dispute, GenLayer validators independently use an LLM to judge
-     the submitted work against the spec (holistic method) and must
-     reach the same verdict for consensus. The job enters
-     "verdict_pending" -- payout does NOT happen yet.
-  5. The losing party has APPEAL_WINDOW to appeal once. An appeal
-     re-adjudicates using a structurally different method (checklist
-     extraction + per-check evaluation, not a repeat of the same
-     holistic prompt) and that verdict is final.
-  6. If no appeal is filed, either party can finalize() after the
-     window closes, paying out the original verdict.
-  7. If evidence is unavailable, the job enters recovery with a
-     deterministic 50/50 split -- no LLM judgment call.
-  8. If a job sits unactioned past ABANDONMENT_PERIOD, either party
-     can request abandonment recovery with a deterministic payout.
-
-Adapted from the accepted genlayer-escrow contract's proven patterns:
-  - _pay() uses emit_transfer(), the documented GenLayer native GEN
-    transfer API for external messages.
-  - get_contract_balance() view so reviewers can verify escrowed
-    funds are actually released after payout.
-  - recover_unavailable_job() and abandon_job() use deterministic
-    rules only, never LLM adjudication -- there's no fair way to give
-    either party an LLM's "opinion" when the evidence itself is gone
-    or one side never acted.
-  - create_job() returns 1-based job IDs; _get_job() maps back to
-    0-based array indices internally.
-
-New in this version:
-  - Disputed jobs no longer pay out immediately. They enter
-    "verdict_pending" so a genuine appeal is possible before funds
-    move -- avoids the much harder problem of clawing back a payout
-    that already left the contract.
-  - appeal() uses a deliberately different adjudication method
-    (extract checkable criteria from the spec, evaluate the
-    deliverable against each, aggregate) rather than re-running the
-    same holistic prompt -- a second, structurally independent pass,
-    not a repeat vote.
-"""
-
-from genlayer import *
+# { "Depends": "py-genlayer:5jycge4q8k23462jtb0b9fyey1s9qz928sz2nbrd9mg4sxqg2qng" }
+import genlayer as gl
+from genlayer.types import *
+from genlayer.storage import DynArray, allow
 from dataclasses import dataclass
 import datetime
 import hashlib
+
+# Arbiter - Agent-to-Agent Escrow, GenLayer Intelligent Contract
+#
+# Flow:
+#   1. Requester agent posts a job with a spec + escrows GEN
+#   2. Worker agent submits work (text OR a URL)
+#   3. Requester approves or disputes
+#   4. On dispute, GenLayer validators independently use an LLM to judge
+#      the submitted work against the spec (holistic method) and must
+#      reach the same verdict for consensus. The job enters
+#      "verdict_pending" -- payout does NOT happen yet.
+#   5. The losing party has APPEAL_WINDOW to appeal once. An appeal
+#      re-adjudicates using a structurally different method (checklist
+#      extraction + per-check evaluation, not a repeat of the same
+#      holistic prompt) and that verdict is final.
+#   6. If no appeal is filed, either party can finalize() after the
+#      window closes, paying out the original verdict.
+#   7. If evidence is unavailable, the job enters recovery with a
+#      deterministic 50/50 split -- no LLM judgment call.
+#   8. If a job sits unactioned past ABANDONMENT_PERIOD, either party
+#      can request abandonment recovery with a deterministic payout.
+#
+# Adapted from the accepted genlayer-escrow contract's proven patterns:
+#   - _pay() uses emit_transfer(), the documented GenLayer native GEN
+#     transfer API for external messages.
+#   - get_contract_balance() view so reviewers can verify escrowed
+#     funds are actually released after payout.
+#   - recover_unavailable_job() and abandon_job() use deterministic
+#     rules only, never LLM adjudication -- there's no fair way to give
+#     either party an LLM's "opinion" when the evidence itself is gone
+#     or one side never acted.
+#   - create_job() returns 1-based job IDs; _get_job() maps back to
+#     0-based array indices internally.
+#
+# New in this version:
+#   - Disputed jobs no longer pay out immediately. They enter
+#     "verdict_pending" so a genuine appeal is possible before funds
+#     move -- avoids the much harder problem of clawing back a payout
+#     that already left the contract.
+#   - appeal() uses a deliberately different adjudication method
+#     (extract checkable criteria from the spec, evaluate the
+#     deliverable against each, aggregate) rather than re-running the
+#     same holistic prompt -- a second, structurally independent pass,
+#     not a repeat vote.
 
 
 ABANDONMENT_PERIOD = datetime.timedelta(days=7)
@@ -66,7 +65,7 @@ def _digest(content: str) -> str:
     return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
 
-@allow_storage
+@allow
 @dataclass
 class Job:
     requester: Address
@@ -91,7 +90,7 @@ class Job:
     milestone_count: u256
 
 
-class Arbiter(gl.Contract):
+class Arbiter(gl.contract.Contract):
     jobs: DynArray[Job]
 
     def __init__(self):
@@ -190,7 +189,7 @@ Respond with ONLY a JSON object:
 
             return own_result.get("verdict") == leader_verdict
 
-        result = gl.vm.run_nondet_unsafe(leader_fn, validate)
+        result = gl.vm.run_nondet_default(leader_fn, validate)
         return result["verdict"]
 
     def _run_checklist_adjudication(self, spec: str, content: str) -> str:
@@ -294,7 +293,7 @@ Respond with ONLY a JSON object:
 
             return own_result.get("verdict") == leader_verdict
 
-        result = gl.vm.run_nondet_unsafe(leader_fn, validate)
+        result = gl.vm.run_nondet_default(leader_fn, validate)
         return result["verdict"]
 
     def _pay(self, to: Address, amount: u256) -> None:
@@ -414,6 +413,13 @@ Respond with ONLY a JSON object:
 
         if len(specs) != len(amounts):
             raise gl.vm.UserError("specs and amounts must be the same length")
+
+        # Calldata may deliver list[u256] elements as plain str/int (e.g. from
+        # JSON-encoded studio calls), since only the top-level arg gets
+        # auto-cast. Normalize each element to a real u256 before anything
+        # else touches it, or a bad value will silently pass validation here
+        # and only blow up later inside the Job dataclass constructor.
+        amounts = [u256(int(a)) for a in amounts]
 
         sum_amounts = 0
         for a in amounts:
@@ -537,7 +543,7 @@ Respond with ONLY a JSON object:
                     and own_result.get("digest") == leader_digest
                 )
 
-            snapshot = gl.vm.run_nondet_unsafe(fetch_and_digest, validate_snapshot)
+            snapshot = gl.vm.run_nondet_default(fetch_and_digest, validate_snapshot)
 
             if snapshot["available"]:
                 digest = snapshot["digest"]
@@ -633,7 +639,7 @@ Respond with ONLY a JSON object:
                     and own_result.get("digest") == leader_digest
                 )
 
-            fetch_result = gl.vm.run_nondet_unsafe(fetch_page, validate_fetch)
+            fetch_result = gl.vm.run_nondet_default(fetch_page, validate_fetch)
 
             if not fetch_result["available"]:
                 job.status = "evidence_unavailable"
