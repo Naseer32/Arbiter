@@ -99,46 +99,52 @@ export function onAccountsChanged(callback) {
   return () => window.ethereum.removeListener("accountsChanged", handler);
 }
 
-// create_job's actual return value is encoded in GenLayer's custom
-// calldata binary format (same scheme used for call arguments), not plain
-// JSON or hex -- decoding it client-side would mean reimplementing that
-// codec in JS. Instead, since job ids are sequential and 1-based, we wait
-// for the tx to confirm and then read job_count(), which *is* the new
-// job's id right after creation -- using the same read-decoding path that
-// already works correctly for get_job(). Caveat: if another job is created
-// by someone else in the brief window between this tx confirming and the
-// job_count() read, the count could reflect that job instead. Low risk for
-// this app's expected usage, and far simpler than a custom binary decoder.
+// create_job's actual return value is not decoded directly. Since job ids
+// are sequential and 1-based, wait for confirmation and read job_count().
+
 export async function createJob(client, worker, spec, amountWei) {
+  const feeEstimate = await client.estimateTransactionFeesForWrite({
+    address: CONTRACT_ADDRESS,
+    functionName: "create_job",
+    args: [worker, spec],
+  });
+
   const tx = await client.writeContract({
     address: CONTRACT_ADDRESS,
     functionName: "create_job",
     args: [worker, spec],
     value: amountWei,
+    fees: {
+      distribution: feeEstimate.distribution,
+      feeValue: feeEstimate.feeValue,
+    },
   });
 
   let jobId = null;
+
   try {
     await client.waitForTransactionReceipt({
       hash: tx,
       status: TransactionStatus.ACCEPTED,
     });
+
     const count = await client.readContract({
       address: CONTRACT_ADDRESS,
       functionName: "job_count",
       args: [],
     });
-    jobId = count !== null && count !== undefined ? count.toString() : null;
+
+    jobId =
+      count !== null && count !== undefined ? count.toString() : null;
   } catch {
-    // Either the receipt wait or the job_count read failed -- doesn't mean
-    // job creation itself failed (the write above already succeeded).
-    // Just means we can't show the id immediately; it's still look-up-able.
+    // Receipt/read failure does not mean the write itself failed.
   }
 
   return { tx, jobId };
 }
 
-// create_milestone_job() appends (1 + specs.length) new jobs in a single
+// create_milestone_job()
+// appends (1 + specs.length) new jobs in a single
 // call: the parent container, immediately followed by one child per
 // milestone. Same id-recovery approach as createJob() above, extended for
 // that fact -- job_count() right after confirmation gives the *last*
