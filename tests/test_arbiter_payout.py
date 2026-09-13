@@ -312,3 +312,27 @@ def test_only_requester_or_worker_can_dispute(arbiter, requester, worker, outsid
 
     with pytest.raises(Exception):
         arbiter.dispute(args=[job_id, "not my call"], account=outsider).transact()
+
+# UPDATE (Sept 13 2026, gltest 0.30.0rc2, studionet):
+# The earlier silent schema-fetch failure is gone. Deploy now reaches real
+# on-chain consensus (MAJORITY_AGREE, 5/5 votes, lifecycle "decided"/
+# "accepted") and returns a valid contract address -- confirmed via
+# factory.deploy_contract_tx() and inspecting result/result_name/lifecycle
+# directly. However, the very first read call against the freshly deployed
+# contract (job_count(), a trivial len() read) fails with an opaque error:
+#   genlayer_py.exceptions.GenLayerError: gen_call failed (code=-32000):
+#   execution failed
+# with no further detail surfaced through gltest's exception. Ruled out as
+# causes: (1) the fee-charging RC preview network -- gltest.config.yaml was
+# pointed at "studio_devnet" (the separate Consensus v0.6 RC environment,
+# studio-dev.genlayer.com, chain 61997) instead of stable "studionet"
+# (chain 61999); fixing that eliminated the earlier FeesDistributionMissing
+# error entirely. (2) A pinned-runtime-dependency mismatch between the repo
+# copy and the manually-tested copy of arbiter_contract.py -- confirmed
+# identical ("py-genlayer:5jycge4q8k23462jtb0b9fyey1s9qz928sz2nbrd9mg4sxqg2qng")
+# in both.
+#
+# This appears to be a gltest-against-studionet-from-Termux read-path issue,
+# not a contract defect -- every path this suite checks was independently
+# verified live and manually via GenLayer Studio's browser UI the same day,
+# with full tx-hash evidence; see TESTING.md.

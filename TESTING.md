@@ -305,3 +305,59 @@ is inherent to GenLayer's validator network at the infrastructure level;
 Arbiter's appeal path adds a second, structurally distinct *adjudication
 method* (checklist-based) on top of that, rather than re-running the same
 reasoning approach twice.
+
+## Live Studio Test Pass -- Sept 13 2026
+
+Full manual test run against contract 0x5cDFabc39bd5b90FB1b89d4F5b448f0BdD8c3Afa
+(appeal/checklist contract version), requester 0x21920357EA92f9B6715978CFdE877FfC2F0c00Ca,
+worker 0xD128c85296E2f0F8a945B8BF4d3740E5897c207b.
+
+### Test 1 -- Happy path (job 11)
+create_job:  0x423a439e29abf09cfb955c4f5d5c2403c8daacef1c9035bd820eff40373f90c4
+submit_work: 0xc86dfce1a45f06fdf732fb0a80aeaff25f34dee0b6f9c67652103a7633637e8f
+approve:     0x4b51c9f58f89ba06065eeb0098f79d56bc19c2a30f0ef683e7d867ac8b018777
+Result: resolved, payout_to=worker
+
+### Test 2 -- Dispute + appeal, both verdicts agree "requester" (job 13)
+create_job:  0x65d297256b08971477c9ab38395d33f6cf18bc28afcf83227b52a347c4d3f8fe
+submit_work: 0x6229ac48465035569820b45772ab7aed02cc3f4e58764ecff48d24c45b3aa48a
+dispute:     0xab2f376516c1f44cdb7f78cd04b3228454b6eff857772efab84791c325debff1 (holistic: requester)
+appeal:      0x9cbab077b9960313d6e11e13709b24648b8a4f74ddcc04391bf869f8ec165957 (checklist: requester)
+Result: resolved via appeal, payout_to=requester, appeal_used=true
+
+### Test 3 -- Evidence unavailable + 50/50 recovery (job 12)
+submit_work (dead URL): 0xf4974367110bfb65bf839a8d27c62514717fcc94f89efd75fa66338814bf86ad
+dispute:                0xb7d6d6646f6b445a4a5b6c6e01cc23eb256447967e75291dc0f833e11e21de0d
+recover_unavailable_job: 0x30bf25b1e79b8656608d2dd7eecc00809d62495162644399c148f08b85fc1420
+Result: resolved, payout_to=split
+
+### Test 2b -- finalize() before appeal window closes (guard confirmed) (job 14)
+create_job:  0x6ac215989aa9c46e1bca112016bf484a4c1c3bae3fb236c5287c11df90a3bdb4
+submit_work: 0xa0ea1fb0c9db492b739135b03aa1e4fa34db2e97c41855d4fa7c85cf3bb85123
+dispute:     0x5a11fdd9bd83ded2bcabd51f10c5a616fc82e6f37511538bf859a801b53321e9
+finalize (reverted): 0xc9b058fc3d4df4c9f0c318b7aa5726274f8fc40d8940888f0790fae64ddc0b6a
+  -> "appeal window still open (0:00:53 elapsed, 1 day required)", 4/4 active validators agreed on rejection
+
+### Test 4 -- abandon_job() before abandonment period elapses (guard confirmed) (job 15)
+create_job: 0xe0488a168858c74d4b6077475cffa0c8447d162ad8fe2a4574f9a0eabd86e3c5
+abandon_job (reverted): 0xc5e0c1cce02a32221070b28cb9589054f9ae223e4ad58ccbe987e85007c247d1
+  -> "job cannot be claimed as abandoned yet (0:01:01 elapsed, 7 days required)"
+
+### Test 5 -- Milestones, parent auto-resolve (parent 16, children 17/18)
+create_milestone_job: 0x8b1fb557cbea6508d8c3b34f64582572422fa620faf07cd5f76eda3a9adeee9d
+  NOTE: amounts must be passed in wei (e.g. 3000000000000000000), matching
+  the payable value's units -- not plain GEN integers as an earlier note
+  assumed. First attempt with plain integers reverted:
+  "sum of milestone amounts (7) must equal escrowed value (7000000000000000000)"
+job 17 submit/approve: 0x12724ea9d9db29e74017781aca353a37d9dde88ceb433bc3dc3d143ecd9fbbfe / 0x2a548b9884761c60dd0fbca0b78b9af484646964b8e5499b86cd4e60e83ad96e
+job 18 submit/approve: 0xf6be12dc1d20ecc56a1072c5385e80cc3f57fe990c913f595d6bf9c9ef170715 / 0xd9be27ae31d3ac53e555ad4c948794eb6b9f3303570a2d00e6a470b0b2f6204d
+Result: parent job 16 status=resolved, is_milestone_parent=true, milestone_count=2,
+        payout_to="" (parent never held or paid funds -- confirmed by design)
+
+### Termux automation attempt (same day)
+gltest 0.30.0rc2 against studionet: deploy succeeds with real on-chain
+consensus (MAJORITY_AGREE, 5/5), but the first read call after deploy fails
+with an opaque `execution failed` RPC error. See dated note in
+tests/test_arbiter_payout.py for the full diagnostic trail. All paths above
+remain fully verified via direct manual testing in GenLayer Studio's
+browser UI with live tx-hash evidence.
