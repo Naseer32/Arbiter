@@ -107,6 +107,7 @@ export async function createJob(client, worker, spec, amountWei) {
     address: CONTRACT_ADDRESS,
     functionName: "create_job",
     args: [worker, spec],
+    value: amountWei,
   });
 
   const tx = await client.writeContract({
@@ -155,11 +156,22 @@ export async function createJob(client, worker, spec, amountWei) {
 export async function createMilestoneJob(client, worker, specs, amountsWei) {
   const total = amountsWei.reduce((sum, a) => sum + BigInt(a), 0n);
 
+  const feeEstimate = await client.estimateTransactionFeesForWrite({
+    address: CONTRACT_ADDRESS,
+    functionName: "create_milestone_job",
+    args: [worker, specs, amountsWei],
+    value: total,
+  });
+
   const tx = await client.writeContract({
     address: CONTRACT_ADDRESS,
     functionName: "create_milestone_job",
     args: [worker, specs, amountsWei],
     value: total,
+    fees: {
+      distribution: feeEstimate.distribution,
+      feeValue: feeEstimate.feeValue,
+    },
   });
 
   let parentJobId = null;
@@ -206,58 +218,128 @@ export async function getMilestones(client, parentJobId) {
 }
 
 export async function submitWork(client, jobId, deliverable, isUrl) {
-  return client.writeContract({
+  const feeEstimate = await client.estimateTransactionFeesForWrite({
     address: CONTRACT_ADDRESS,
     functionName: "submit_work",
     args: [jobId, deliverable, isUrl],
   });
+
+  return client.writeContract({
+    address: CONTRACT_ADDRESS,
+    functionName: "submit_work",
+    args: [jobId, deliverable, isUrl],
+    fees: {
+      distribution: feeEstimate.distribution,
+      feeValue: feeEstimate.feeValue,
+    },
+  });
 }
 
 export async function approveJob(client, jobId) {
-  return client.writeContract({
+  const feeEstimate = await client.estimateTransactionFeesForWrite({
     address: CONTRACT_ADDRESS,
     functionName: "approve",
     args: [jobId],
   });
+
+  return client.writeContract({
+    address: CONTRACT_ADDRESS,
+    functionName: "approve",
+    args: [jobId],
+    fees: {
+      distribution: feeEstimate.distribution,
+      feeValue: feeEstimate.feeValue,
+    },
+  });
 }
 
 export async function disputeJob(client, jobId, reason) {
-  return client.writeContract({
+  const feeEstimate = await client.estimateTransactionFeesForWrite({
     address: CONTRACT_ADDRESS,
     functionName: "dispute",
     args: [jobId, reason],
   });
+
+  return client.writeContract({
+    address: CONTRACT_ADDRESS,
+    functionName: "dispute",
+    args: [jobId, reason],
+    fees: {
+      distribution: feeEstimate.distribution,
+      feeValue: feeEstimate.feeValue,
+    },
+  });
 }
 
 export async function appealJob(client, jobId, reason) {
-  return client.writeContract({
+  const feeEstimate = await client.estimateTransactionFeesForWrite({
     address: CONTRACT_ADDRESS,
     functionName: "appeal",
     args: [jobId, reason],
   });
+
+  return client.writeContract({
+    address: CONTRACT_ADDRESS,
+    functionName: "appeal",
+    args: [jobId, reason],
+    fees: {
+      distribution: feeEstimate.distribution,
+      feeValue: feeEstimate.feeValue,
+    },
+  });
 }
 
 export async function finalizeJob(client, jobId) {
-  return client.writeContract({
+  const feeEstimate = await client.estimateTransactionFeesForWrite({
     address: CONTRACT_ADDRESS,
     functionName: "finalize",
     args: [jobId],
   });
+
+  return client.writeContract({
+    address: CONTRACT_ADDRESS,
+    functionName: "finalize",
+    args: [jobId],
+    fees: {
+      distribution: feeEstimate.distribution,
+      feeValue: feeEstimate.feeValue,
+    },
+  });
 }
 
 export async function recoverUnavailableJob(client, jobId, reason) {
-  return client.writeContract({
+  const feeEstimate = await client.estimateTransactionFeesForWrite({
     address: CONTRACT_ADDRESS,
     functionName: "recover_unavailable_job",
     args: [jobId, reason],
   });
+
+  return client.writeContract({
+    address: CONTRACT_ADDRESS,
+    functionName: "recover_unavailable_job",
+    args: [jobId, reason],
+    fees: {
+      distribution: feeEstimate.distribution,
+      feeValue: feeEstimate.feeValue,
+    },
+  });
 }
 
 export async function abandonJob(client, jobId, reason) {
+  const feeEstimate = await client.estimateTransactionFeesForWrite({
+    address: CONTRACT_ADDRESS,
+    functionName: "abandon_job",
+    args: [jobId, reason],
+  });
+
   return client.writeContract({
     address: CONTRACT_ADDRESS,
     functionName: "abandon_job",
     args: [jobId, reason],
+    fees: {
+      distribution: feeEstimate.distribution,
+      feeValue: feeEstimate.feeValue,
+    },
   });
 }
 
