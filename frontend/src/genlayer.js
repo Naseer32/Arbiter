@@ -3,7 +3,7 @@ import { studionet } from "genlayer-js/chains";
 import { TransactionStatus } from "genlayer-js/types";
 
 // Deployed on GenLayer Studio (studio.genlayer.com)
-export const CONTRACT_ADDRESS = "0x7FE6B2AC00dbe9857E91fEfD3A280C59C1a267b1";
+export const CONTRACT_ADDRESS = "0x5cDFabc39bd5b90FB1b89d4F5b448f0BdD8c3Afa";
 
 // Must match APPEAL_WINDOW in arbiter_contract.py exactly -- this is a
 // display-only value (for showing an estimated deadline in the UI) and
