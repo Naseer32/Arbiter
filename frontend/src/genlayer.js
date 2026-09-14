@@ -11,7 +11,7 @@ const studioDevChain = {
   id: 61997,
   name: "GenLayer Studio (Dev)",
   rpcUrls: {
-    default: { http: ["https://studio-dev.genlayer.com/api"] },
+    default: { http: ["https://studio-next.genlayer.com/api"] },
   },
 };
 
