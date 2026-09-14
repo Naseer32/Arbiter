@@ -600,6 +600,7 @@ function ArbiterApp({ onBack }) {
   }
 
   async function loadRecentJobs() {
+    if (!client) return;
     setRecentLoading(true);
     try {
       const count = await getJobCount(client);
@@ -782,6 +783,7 @@ function ArbiterApp({ onBack }) {
             <h2 className="stage-title">Recent Jobs</h2>
           </div>
           <p className="stage-help">Browse the most recent jobs on this contract without needing an ID.</p>
+          <button className="btn btn-outline" onClick={loadRecentJobs} disabled={!client || recentLoading}>
             {recentLoading ? <span className="spinner" /> : <IconSearch className="stage-icon" style={{ width: 15, height: 15 }} />}
             {recentLoading ? "Loading…" : "Load Recent Jobs"}
           </button>
