@@ -255,7 +255,7 @@ export async function disputeJob(client, jobId, reason) {
   return writeContractWithFees(client, {
     address: CONTRACT_ADDRESS,
     functionName: "dispute",
-    args: [BigInt(jobId), reason],
+    args: [Number(jobId), reason],
   });
 }
 
