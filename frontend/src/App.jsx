@@ -168,6 +168,7 @@ function ArbiterApp({ onBack }) {
   const [lookupId, setLookupId] = useState("");
   const [jobData, setJobData] = useState(null);
   const [viewingFromRecent, setViewingFromRecent] = useState(false);
+  const [showRawJson, setShowRawJson] = useState(false);
 
   const [recentJobs, setRecentJobs] = useState([]);
   const [recentLoading, setRecentLoading] = useState(false);
@@ -594,6 +595,7 @@ function ArbiterApp({ onBack }) {
       const data = await getJob(client, id);
       setJobData(data);
       setViewingFromRecent(false);
+      setShowRawJson(false);
     } catch (e) {
       setStatus({ text: `get_job failed: ${e.message}`, tone: "error" });
     } finally {
@@ -633,6 +635,7 @@ function ArbiterApp({ onBack }) {
     setLookupId(String(id));
     setJobData(data);
     setViewingFromRecent(true);
+    setShowRawJson(false);
   }
 
   function handleBackToRecent() {
@@ -758,7 +761,16 @@ function ArbiterApp({ onBack }) {
                   </div>
                 </>
               )}
-              <pre className="job-json">{JSON.stringify(jobData, null, 2)}</pre>
+              <button
+                className="btn-ghost btn-sm"
+                onClick={() => setShowRawJson((v) => !v)}
+                style={{ marginTop: 8 }}
+              >
+                {showRawJson ? "Hide raw data" : "Show raw data"}
+              </button>
+              {showRawJson && (
+                <pre className="job-json">{JSON.stringify(jobData, null, 2)}</pre>
+              )}
             </div>
           )}
 
