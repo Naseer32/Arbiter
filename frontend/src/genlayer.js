@@ -107,17 +107,18 @@ export function onAccountsChanged(callback) {
 // write call, instead of us trying to compute or hardcode fee numbers
 // ourselves.
 async function writeContractWithFees(client, { address, functionName, args, value }) {
+  const safeValue = value ?? 0n;
   const estimate = await client.estimateTransactionFeesForWrite({
     address,
     functionName,
     args,
-    value,
+    value: safeValue,
   });
   return client.writeContract({
     address,
     functionName,
     args,
-    value,
+    value: safeValue,
     fees: {
       distribution: estimate.distribution,
       feeValue: estimate.feeValue,
