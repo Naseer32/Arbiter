@@ -108,22 +108,31 @@ export function onAccountsChanged(callback) {
 // ourselves.
 async function writeContractWithFees(client, { address, functionName, args, value }) {
   const safeValue = value ?? 0n;
-  const estimate = await client.estimateTransactionFeesForWrite({
-    address,
-    functionName,
-    args,
-    value: safeValue,
-  });
-  return client.writeContract({
-    address,
-    functionName,
-    args,
-    value: safeValue,
-    fees: {
-      distribution: estimate.distribution,
-      feeValue: estimate.feeValue,
-    },
-  });
+  let estimate;
+  try {
+    estimate = await client.estimateTransactionFeesForWrite({
+      address,
+      functionName,
+      args,
+      value: safeValue,
+    });
+  } catch (e) {
+    throw new Error(`[FEE ESTIMATE FAILED] ${e.message}`);
+  }
+  try {
+    return await client.writeContract({
+      address,
+      functionName,
+      args,
+      value: safeValue,
+      fees: {
+        distribution: estimate.distribution,
+        feeValue: estimate.feeValue,
+      },
+    });
+  } catch (e) {
+    throw new Error(`[WRITE FAILED] ${e.message}`);
+  }
 }
 
 // create_job's actual return value is encoded in GenLayer's custom
