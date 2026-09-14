@@ -99,6 +99,31 @@ export function onAccountsChanged(callback) {
   return () => window.ethereum.removeListener("accountsChanged", handler);
 }
 
+// genlayer-js 1.2.0 introduced a new fee-distribution system for write
+// calls on this network -- without it, writes fail with
+// FeesDistributionMissing / FeeValueMustBeNonZero. This helper estimates
+// the required fee distribution/value via the SDK's own
+// estimateTransactionFeesForWrite() and feeds that straight into the real
+// write call, instead of us trying to compute or hardcode fee numbers
+// ourselves.
+async function writeContractWithFees(client, { address, functionName, args, value }) {
+  const estimate = await client.estimateTransactionFeesForWrite({
+    address,
+    functionName,
+    args,
+    value,
+  });
+  return client.writeContract({
+    address,
+    functionName,
+    args,
+    value,
+    distribution: estimate.distribution,
+    messageAllocations: estimate.messageAllocations,
+    feeValue: estimate.feeValue,
+  });
+}
+
 // create_job's actual return value is encoded in GenLayer's custom
 // calldata binary format (same scheme used for call arguments), not plain
 // JSON or hex -- decoding it client-side would mean reimplementing that
@@ -110,7 +135,7 @@ export function onAccountsChanged(callback) {
 // job_count() read, the count could reflect that job instead. Low risk for
 // this app's expected usage, and far simpler than a custom binary decoder.
 export async function createJob(client, worker, spec, amountWei) {
-  const tx = await client.writeContract({
+  const tx = await writeContractWithFees(client, {
     address: CONTRACT_ADDRESS,
     functionName: "create_job",
     args: [worker, spec],
@@ -149,7 +174,7 @@ export async function createJob(client, worker, spec, amountWei) {
 export async function createMilestoneJob(client, worker, specs, amountsWei) {
   const total = amountsWei.reduce((sum, a) => sum + BigInt(a), 0n);
 
-  const tx = await client.writeContract({
+  const tx = await writeContractWithFees(client, {
     address: CONTRACT_ADDRESS,
     functionName: "create_milestone_job",
     args: [worker, specs, amountsWei],
@@ -200,7 +225,7 @@ export async function getMilestones(client, parentJobId) {
 }
 
 export async function submitWork(client, jobId, deliverable, isUrl) {
-  return client.writeContract({
+  return writeContractWithFees(client, {
     address: CONTRACT_ADDRESS,
     functionName: "submit_work",
     args: [BigInt(jobId), deliverable, isUrl],
@@ -208,7 +233,7 @@ export async function submitWork(client, jobId, deliverable, isUrl) {
 }
 
 export async function approveJob(client, jobId) {
-  return client.writeContract({
+  return writeContractWithFees(client, {
     address: CONTRACT_ADDRESS,
     functionName: "approve",
     args: [BigInt(jobId)],
@@ -216,7 +241,7 @@ export async function approveJob(client, jobId) {
 }
 
 export async function disputeJob(client, jobId, reason) {
-  return client.writeContract({
+  return writeContractWithFees(client, {
     address: CONTRACT_ADDRESS,
     functionName: "dispute",
     args: [BigInt(jobId), reason],
@@ -224,7 +249,7 @@ export async function disputeJob(client, jobId, reason) {
 }
 
 export async function appealJob(client, jobId, reason) {
-  return client.writeContract({
+  return writeContractWithFees(client, {
     address: CONTRACT_ADDRESS,
     functionName: "appeal",
     args: [BigInt(jobId), reason],
@@ -232,7 +257,7 @@ export async function appealJob(client, jobId, reason) {
 }
 
 export async function finalizeJob(client, jobId) {
-  return client.writeContract({
+  return writeContractWithFees(client, {
     address: CONTRACT_ADDRESS,
     functionName: "finalize",
     args: [BigInt(jobId)],
@@ -240,7 +265,7 @@ export async function finalizeJob(client, jobId) {
 }
 
 export async function recoverUnavailableJob(client, jobId, reason) {
-  return client.writeContract({
+  return writeContractWithFees(client, {
     address: CONTRACT_ADDRESS,
     functionName: "recover_unavailable_job",
     args: [BigInt(jobId), reason],
@@ -248,7 +273,7 @@ export async function recoverUnavailableJob(client, jobId, reason) {
 }
 
 export async function abandonJob(client, jobId, reason) {
-  return client.writeContract({
+  return writeContractWithFees(client, {
     address: CONTRACT_ADDRESS,
     functionName: "abandon_job",
     args: [BigInt(jobId), reason],
