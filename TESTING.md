@@ -1,7 +1,11 @@
 # Manual Testing — Live On-Chain Evidence
 
 All tests below were run against the deployed Arbiter contract on GenLayer
-Studio.
+Studio Next (chain 61997).
+
+Note: some early test runs referenced below used an earlier studionet
+instance (chain 61999) before final migration to Studio Next. All
+final-submission testing was performed on chain 61997.
 
 **Test wallets:**
 - `0x53b20BeADADe01b46a3fb5bdbC85D3A7B0f12A96`

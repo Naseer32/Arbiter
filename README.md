@@ -50,13 +50,12 @@ the accepted, testnet-verified genlayer-escrow submission's proven patterns.
 Frontend rebuilds its client automatically on wallet account switches.
 Deployed and manually tested on GenLayer Studio (create → submit → approve
 happy path confirmed on-chain); dispute, recovery, and abandonment paths still
-to be exercised. Plan to redeploy to Testnet Bradbury for the final submission
-once Bradbury faucet funds are available.
+to be exercised. Deployed on GenLayer Studio Next (chain 61997) for hackathon submission.
 
 ## Deploying
 
 1. Deploy `contract/arbiter_contract.py` via GenLayer Studio (or CLI) to your
-   target network (Studionet → TestnetAsimov → TestnetBradbury)
+   target network — GenLayer Studio Next (chain 61997, RPC: https://studio-next.genlayer.com/api)
 2. Paste the deployed contract address into `frontend/src/genlayer.js`
    (`CONTRACT_ADDRESS`)
 3. `cd frontend && npm install && npm run dev` (or deploy to Vercel)
