@@ -167,6 +167,7 @@ function ArbiterApp({ onBack }) {
 
   const [lookupId, setLookupId] = useState("");
   const [jobData, setJobData] = useState(null);
+  const [viewingFromRecent, setViewingFromRecent] = useState(false);
 
   const [recentJobs, setRecentJobs] = useState([]);
   const [recentLoading, setRecentLoading] = useState(false);
@@ -592,6 +593,7 @@ function ArbiterApp({ onBack }) {
     try {
       const data = await getJob(client, id);
       setJobData(data);
+      setViewingFromRecent(false);
     } catch (e) {
       setStatus({ text: `get_job failed: ${e.message}`, tone: "error" });
     } finally {
@@ -630,6 +632,13 @@ function ArbiterApp({ onBack }) {
   function handleRecentJobClick(id, data) {
     setLookupId(String(id));
     setJobData(data);
+    setViewingFromRecent(true);
+  }
+
+  function handleBackToRecent() {
+    setJobData(null);
+    setLookupId("");
+    setViewingFromRecent(false);
   }
 
   function statusInfo(data) {
@@ -725,6 +734,12 @@ function ArbiterApp({ onBack }) {
               {pendingAction === "lookup" ? "Looking up…" : "Get Job"}
             </button>
           </div>
+
+          {jobData && viewingFromRecent && (
+            <button className="btn-ghost" onClick={handleBackToRecent} style={{ marginBottom: 8 }}>
+              ← Back to Recent Jobs
+            </button>
+          )}
 
           {jobData && (
             <div className="status-panel">
