@@ -399,3 +399,14 @@ Milestone job lifecycle (parent job 24, 7 GEN total across 2 milestones):
 
 All transactions verified FINALIZED with GenVM Execution Result: SUCCESS via
 https://explorer-studio-dev.genlayer.com.
+
+## Earlier Test Run — Sept 13, 2026 (pre-fix, chain 61997 diagnostic)
+
+See smoke_run_latest.log (committed separately, commit 0670082) for the full
+pytest/gltest output from Sept 13. This run is what identified that chain
+61997 (studio_devnet, the fee-charging RC preview network) throws
+FeesDistributionMissing on deploy with the genlayer-py/genlayer-test versions
+available at the time -- see the comment block in
+tests/test_arbiter_payout.py (~line 315) for the detailed investigation notes
+from that session, including confirmation that the same contract code
+deploys and passes cleanly on stable studionet (chain 61999).
