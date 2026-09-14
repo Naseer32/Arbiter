@@ -361,3 +361,41 @@ with an opaque `execution failed` RPC error. See dated note in
 tests/test_arbiter_payout.py for the full diagnostic trail. All paths above
 remain fully verified via direct manual testing in GenLayer Studio's
 browser UI with live tx-hash evidence.
+
+## Live Test Run — Sept 14, 2026 (GenLayer Studio Dev, chain 61997)
+
+Full end-to-end validation performed live through the deployed frontend
+(frontend-kube.vercel.app) against contract 0x7FE6B2AC00dbe9857E91fEfD3A280C59C1a267b1
+on studio-dev.genlayer.com (chain 61997). This followed a debugging session
+that identified and fixed several genlayer-js 1.2.0 compatibility issues:
+job_id args must be passed as Number (not BigInt), and every write call must
+include distribution, feeValue, and messageAllocations from
+estimateTransactionFeesForWrite() nested under a `fees` object in
+writeContract() -- omitting messageAllocations causes fee-bearing payout
+messages to fail with Mode1MessageFeesRequireGenVMPerEmissionSupport.
+
+Note: the local `gltest` suite (tests/test_arbiter_smoke.py,
+tests/test_arbiter_payout.py) currently fails at deployment with
+FeesDistributionMissing -- genlayer-py 0.19.0rc2 / genlayer-test 0.30.0rc2
+(latest available versions as of this writing) don't yet expose the same
+fee-distribution parameters that genlayer-js 1.2.0 added. The live run below
+is the authoritative validation for this submission.
+
+Single-job lifecycle:
+- create_job (job 20): 0x2598e93c964b1505df1d7cd58c7f9946e382c61ab68fb64c5454bfea4ed60447
+- submit_work (job 19): 0x8b3d78241d552cf1c6fed7e3cbc4011c6fe5ea30b9e946a7e691d6a1ec5a67ed
+- dispute (job 19): 0x470f3c7395bed7ccc2cd43127d236a3ff607d6618f39bc91658ab9779bc555c3
+- dispute/appeal flow (job 22): 0xd510d9b3254fc2a2fa38219f13c0ac32056caf41134e62850f2dbeff44ff35b8
+- finalize, pays out verdict (job 21): 0x1cf8c30bf9c23ffa0dd47140cf262f6d6f1ff1cc551256c9f6e6a2ccb46956d9
+- recover_unavailable_job, 50/50 split (job 23): 0x8a6cdc8dda32efbc85d709c20a1df4b1778267f305f0411255cef55a6302c8f7
+
+Milestone job lifecycle (parent job 24, 7 GEN total across 2 milestones):
+- create_milestone_job: 0x98826d0b43f31b60b63c582e749e2617b365d1e7fe3333459a005290ccfa37de
+- submit_work milestone #25: 0x271762bbce0ba7a59b0631160b1c870f88ff41ba530a331af0eebdfff3842a36
+- submit_work milestone #26: 0x3a8338b5aa7dccef2a940b5859294bcad7da652d226102b2f9928d61f4fe28c8
+- approve milestone #25, pays 3 GEN: 0xecf05bc659795d097968400d57e3f4563c56eeee1e6ab950910b5f16c9f90aa0
+- approve milestone #26, pays 4 GEN: 0xd861d0fcc0b0ec8481900b04b2f25f957a8a28fd7046ec821ddeea790ceb2685
+- parent job 24 confirmed auto-resolved after both milestones approved
+
+All transactions verified FINALIZED with GenVM Execution Result: SUCCESS via
+https://explorer-studio-dev.genlayer.com.
