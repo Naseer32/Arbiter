@@ -17,6 +17,7 @@ import {
   recoverUnavailableJob,
   abandonJob,
   getJob,
+  getJobCount,
   createMilestoneJob,
   getMilestones,
   txExplorerUrl,
@@ -166,6 +167,9 @@ function ArbiterApp({ onBack }) {
 
   const [lookupId, setLookupId] = useState("");
   const [jobData, setJobData] = useState(null);
+
+  const [recentJobs, setRecentJobs] = useState([]);
+  const [recentLoading, setRecentLoading] = useState(false);
 
   // ---- Milestone jobs ----
   const [milestoneWorker, setMilestoneWorker] = useState("");
@@ -595,6 +599,38 @@ function ArbiterApp({ onBack }) {
     }
   }
 
+  async function loadRecentJobs() {
+    setRecentLoading(true);
+    try {
+      const count = await getJobCount(client);
+      const total = Number(count?.toString ? count.toString() : count);
+      const ids = [];
+      for (let i = total; i >= 1 && ids.length < 10; i--) {
+        ids.push(i);
+      }
+      const jobs = await Promise.all(
+        ids.map(async (id) => {
+          try {
+            const data = await getJob(client, id);
+            return { id, data };
+          } catch {
+            return null;
+          }
+        })
+      );
+      setRecentJobs(jobs.filter(Boolean));
+    } catch (e) {
+      setStatus({ text: `Loading recent jobs failed: ${e.message}`, tone: "error" });
+    } finally {
+      setRecentLoading(false);
+    }
+  }
+
+  function handleRecentJobClick(id, data) {
+    setLookupId(String(id));
+    setJobData(data);
+  }
+
   function statusInfo(data) {
     if (!data) return null;
     switch (data.status) {
@@ -735,6 +771,39 @@ function ArbiterApp({ onBack }) {
               >
                 {msLoading ? "Loading…" : "View Full Group ↓"}
               </button>
+            </div>
+          )}
+        </div>
+
+        {/* Recent Jobs browse */}
+        <div className="stage">
+          <div className="stage-header">
+            <IconHistory className="stage-icon" />
+            <h2 className="stage-title">Recent Jobs</h2>
+          </div>
+          <p className="stage-help">Browse the most recent jobs on this contract without needing an ID.</p>
+            {recentLoading ? <span className="spinner" /> : <IconSearch className="stage-icon" style={{ width: 15, height: 15 }} />}
+            {recentLoading ? "Loading…" : "Load Recent Jobs"}
+          </button>
+
+          {recentJobs.length > 0 && (
+            <div className="history-list" style={{ marginTop: 12 }}>
+              {recentJobs.map(({ id, data }) => (
+                <div
+                  className="history-row"
+                  key={id}
+                  style={{ cursor: "pointer" }}
+                  onClick={() => handleRecentJobClick(id, data)}
+                >
+                  <div className="history-main">
+                    <span className="history-job">Job #{id}</span>
+                    <span className="history-action">{data.status}</span>
+                  </div>
+                  <span className="history-hash-plain" style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {data.spec}
+                  </span>
+                </div>
+              ))}
             </div>
           )}
         </div>

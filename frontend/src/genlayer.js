@@ -300,6 +300,14 @@ export async function getJob(client, jobId) {
   });
 }
 
+export async function getJobCount(client) {
+  return client.readContract({
+    address: CONTRACT_ADDRESS,
+    functionName: "job_count",
+    args: [],
+  });
+}
+
 // Block explorer link for a tx hash. Pointed at the Dev Studio explorer
 // since the contract is deployed there, not on production Studio.
 export const EXPLORER_BASE_URL = "https://explorer-studio-dev.genlayer.com";
