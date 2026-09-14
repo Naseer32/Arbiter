@@ -99,46 +99,52 @@ export function onAccountsChanged(callback) {
   return () => window.ethereum.removeListener("accountsChanged", handler);
 }
 
-// create_job's actual return value is encoded in GenLayer's custom
-// calldata binary format (same scheme used for call arguments), not plain
-// JSON or hex -- decoding it client-side would mean reimplementing that
-// codec in JS. Instead, since job ids are sequential and 1-based, we wait
-// for the tx to confirm and then read job_count(), which *is* the new
-// job's id right after creation -- using the same read-decoding path that
-// already works correctly for get_job(). Caveat: if another job is created
-// by someone else in the brief window between this tx confirming and the
-// job_count() read, the count could reflect that job instead. Low risk for
-// this app's expected usage, and far simpler than a custom binary decoder.
+// create_job's actual return value is not decoded directly. Since job ids
+// are sequential and 1-based, wait for confirmation and read job_count().
+
 export async function createJob(client, worker, spec, amountWei) {
+  const feeEstimate = await client.estimateTransactionFeesForWrite({
+    address: CONTRACT_ADDRESS,
+    functionName: "create_job",
+    args: [worker, spec],
+  });
+
   const tx = await client.writeContract({
     address: CONTRACT_ADDRESS,
     functionName: "create_job",
     args: [worker, spec],
     value: amountWei,
+    fees: {
+      distribution: feeEstimate.distribution,
+      feeValue: feeEstimate.feeValue,
+    },
   });
 
   let jobId = null;
+
   try {
     await client.waitForTransactionReceipt({
       hash: tx,
       status: TransactionStatus.ACCEPTED,
     });
+
     const count = await client.readContract({
       address: CONTRACT_ADDRESS,
       functionName: "job_count",
       args: [],
     });
-    jobId = count !== null && count !== undefined ? count.toString() : null;
+
+    jobId =
+      count !== null && count !== undefined ? count.toString() : null;
   } catch {
-    // Either the receipt wait or the job_count read failed -- doesn't mean
-    // job creation itself failed (the write above already succeeded).
-    // Just means we can't show the id immediately; it's still look-up-able.
+    // Receipt/read failure does not mean the write itself failed.
   }
 
   return { tx, jobId };
 }
 
-// create_milestone_job() appends (1 + specs.length) new jobs in a single
+// create_milestone_job()
+// appends (1 + specs.length) new jobs in a single
 // call: the parent container, immediately followed by one child per
 // milestone. Same id-recovery approach as createJob() above, extended for
 // that fact -- job_count() right after confirmation gives the *last*
@@ -203,7 +209,7 @@ export async function submitWork(client, jobId, deliverable, isUrl) {
   return client.writeContract({
     address: CONTRACT_ADDRESS,
     functionName: "submit_work",
-    args: [BigInt(jobId), deliverable, isUrl],
+    args: [jobId, deliverable, isUrl],
   });
 }
 
@@ -211,7 +217,7 @@ export async function approveJob(client, jobId) {
   return client.writeContract({
     address: CONTRACT_ADDRESS,
     functionName: "approve",
-    args: [BigInt(jobId)],
+    args: [jobId],
   });
 }
 
@@ -219,7 +225,7 @@ export async function disputeJob(client, jobId, reason) {
   return client.writeContract({
     address: CONTRACT_ADDRESS,
     functionName: "dispute",
-    args: [BigInt(jobId), reason],
+    args: [jobId, reason],
   });
 }
 
@@ -227,7 +233,7 @@ export async function appealJob(client, jobId, reason) {
   return client.writeContract({
     address: CONTRACT_ADDRESS,
     functionName: "appeal",
-    args: [BigInt(jobId), reason],
+    args: [jobId, reason],
   });
 }
 
@@ -235,7 +241,7 @@ export async function finalizeJob(client, jobId) {
   return client.writeContract({
     address: CONTRACT_ADDRESS,
     functionName: "finalize",
-    args: [BigInt(jobId)],
+    args: [jobId],
   });
 }
 
@@ -243,15 +249,244 @@ export async function recoverUnavailableJob(client, jobId, reason) {
   return client.writeContract({
     address: CONTRACT_ADDRESS,
     functionName: "recover_unavailable_job",
-    args: [BigInt(jobId), reason],
+    args: [jobId, reason],
+  });export async function createJob(client, worker, spec, amountWei) {
+  const feeEstimate = await client.estimateTransactionFeesForWrite({
+    address: CONTRACT_ADDRESS,
+    functionName: "create_job",
+    args: [worker, spec],
+    value: amountWei,
+  });
+
+  const tx = await client.writeContract({
+    address: CONTRACT_ADDRESS,
+    functionName: "create_job",
+    args: [worker, spec],
+    value: amountWei,
+    fees: {
+      distribution: feeEstimate.distribution,
+      feeValue: feeEstimate.feeValue,
+    },
+  });
+
+  let jobId = null;
+
+  try {
+    await client.waitForTransactionReceipt({
+      hash: tx,
+      status: TransactionStatus.ACCEPTED,
+    });
+
+    const count = await client.readContract({
+      address: CONTRACT_ADDRESS,
+      functionName: "job_count",
+      args: [],
+    });
+
+    jobId =
+      count !== null && count !== undefined ? count.toString() : null;
+  } catch {
+    // Receipt/read failure does not mean the write itself failed.
+  }
+
+  return { tx, jobId };
+}
+
+export async function createMilestoneJob(client, worker, specs, amountsWei) {
+  const total = amountsWei.reduce((sum, a) => sum + BigInt(a), 0n);
+
+  const feeEstimate = await client.estimateTransactionFeesForWrite({
+    address: CONTRACT_ADDRESS,
+    functionName: "create_milestone_job",
+    args: [worker, specs, amountsWei],
+    value: total,
+  });
+
+  const tx = await client.writeContract({
+    address: CONTRACT_ADDRESS,
+    functionName: "create_milestone_job",
+    args: [worker, specs, amountsWei],
+    value: total,
+    fees: {
+      distribution: feeEstimate.distribution,
+      feeValue: feeEstimate.feeValue,
+    },
+  });
+
+  let parentJobId = null;
+  let milestoneJobIds = [];
+
+  try {
+    await client.waitForTransactionReceipt({
+      hash: tx,
+      status: TransactionStatus.ACCEPTED,
+    });
+
+    const count = await client.readContract({
+      address: CONTRACT_ADDRESS,
+      functionName: "job_count",
+      args: [],
+    });
+
+    if (count !== null && count !== undefined) {
+      const countBig = BigInt(count.toString());
+      const parentBig = countBig - BigInt(specs.length);
+      parentJobId = parentBig.toString();
+
+      const children = await client.readContract({
+        address: CONTRACT_ADDRESS,
+        functionName: "get_milestones",
+        args: [parentBig],
+      });
+
+      milestoneJobIds = (children || []).map((c) => c.toString());
+    }
+  } catch {
+    // Receipt/read failure does not mean the write itself failed.
+  }
+
+  return { tx, parentJobId, milestoneJobIds };
+}
+
+export async function getMilestones(client, parentJobId) {
+  return client.readContract({
+    address: CONTRACT_ADDRESS,
+    functionName: "get_milestones",
+    args: [parentJobId],
   });
 }
+
+export async function submitWork(client, jobId, deliverable, isUrl) {
+  const feeEstimate = await client.estimateTransactionFeesForWrite({
+    address: CONTRACT_ADDRESS,
+    functionName: "submit_work",
+    args: [jobId, deliverable, isUrl],
+  });
+
+  return client.writeContract({
+    address: CONTRACT_ADDRESS,
+    functionName: "submit_work",
+    args: [jobId, deliverable, isUrl],
+    fees: {
+      distribution: feeEstimate.distribution,
+      feeValue: feeEstimate.feeValue,
+    },
+  });
+}
+
+export async function approveJob(client, jobId) {
+  const feeEstimate = await client.estimateTransactionFeesForWrite({
+    address: CONTRACT_ADDRESS,
+    functionName: "approve",
+    args: [jobId],
+  });
+
+  return client.writeContract({
+    address: CONTRACT_ADDRESS,
+    functionName: "approve",
+    args: [jobId],
+    fees: {
+      distribution: feeEstimate.distribution,
+      feeValue: feeEstimate.feeValue,
+    },
+  });
+}
+
+export async function disputeJob(client, jobId, reason) {
+  const feeEstimate = await client.estimateTransactionFeesForWrite({
+    address: CONTRACT_ADDRESS,
+    functionName: "dispute",
+    args: [jobId, reason],
+  });
+
+  return client.writeContract({
+    address: CONTRACT_ADDRESS,
+    functionName: "dispute",
+    args: [jobId, reason],
+    fees: {
+      distribution: feeEstimate.distribution,
+      feeValue: feeEstimate.feeValue,
+    },
+  });
+}
+
+export async function appealJob(client, jobId, reason) {
+  const feeEstimate = await client.estimateTransactionFeesForWrite({
+    address: CONTRACT_ADDRESS,
+    functionName: "appeal",
+    args: [jobId, reason],
+  });
+
+  return client.writeContract({
+    address: CONTRACT_ADDRESS,
+    functionName: "appeal",
+    args: [jobId, reason],
+    fees: {
+      distribution: feeEstimate.distribution,
+      feeValue: feeEstimate.feeValue,
+    },
+  });
+}
+
+export async function finalizeJob(client, jobId) {
+  const feeEstimate = await client.estimateTransactionFeesForWrite({
+    address: CONTRACT_ADDRESS,
+    functionName: "finalize",
+    args: [jobId],
+  });
+
+  return client.writeContract({
+    address: CONTRACT_ADDRESS,
+    functionName: "finalize",
+    args: [jobId],
+    fees: {
+      distribution: feeEstimate.distribution,
+      feeValue: feeEstimate.feeValue,
+    },
+  });
+}
+
+export async function recoverUnavailableJob(client, jobId, reason) {
+  const feeEstimate = await client.estimateTransactionFeesForWrite({
+    address: CONTRACT_ADDRESS,
+    functionName: "recover_unavailable_job",
+    args: [jobId, reason],
+  });
+
+  return client.writeContract({
+    address: CONTRACT_ADDRESS,
+    functionName: "recover_unavailable_job",
+    args: [jobId, reason],
+    fees: {
+      distribution: feeEstimate.distribution,
+      feeValue: feeEstimate.feeValue,
+    },
+  });
+}
+
+export async function abandonJob(client, jobId, reason) {
+  const feeEstimate = await client.estimateTransactionFeesForWrite({
+    address: CONTRACT_ADDRESS,
+    functionName: "abandon_job",
+    args: [jobId, reason],
+  });
+
+  return client.writeContract({
+    address: CONTRACT_ADDRESS,
+    functionName: "abandon_job",
+    args: [jobId, reason],
+    fees: {
+      distribution: feeEstimate.distribution,
+      feeValue: feeEstimate.feeValue,
+    },
+  });
+}}
 
 export async function abandonJob(client, jobId, reason) {
   return client.writeContract({
     address: CONTRACT_ADDRESS,
     functionName: "abandon_job",
-    args: [BigInt(jobId), reason],
+    args: [jobId, reason],
   });
 }
 
@@ -259,7 +494,7 @@ export async function getJob(client, jobId) {
   return client.readContract({
     address: CONTRACT_ADDRESS,
     functionName: "get_job",
-    args: [BigInt(jobId)],
+    args: [jobId],
   });
 }
 

@@ -337,7 +337,10 @@ function ArbiterApp({ onBack }) {
         setJobId(String(newJobId));
       }
     } catch (e) {
-      setStatus({ text: `create_job failed: ${e.message}`, tone: "error" });
+      setStatus({
+        text: `create_job failed: ${e.message} | ${JSON.stringify(e, Object.getOwnPropertyNames(e))}`,
+        tone: "error",
+      });
     } finally {
       setPendingAction(null);
     }
