@@ -804,6 +804,16 @@ function ArbiterApp({ onBack }) {
           </button>
 
           {recentJobs.length > 0 && (
+            <button
+              className="btn-ghost"
+              onClick={() => setRecentJobs([])}
+              style={{ marginLeft: 8 }}
+            >
+              Hide Recent Jobs
+            </button>
+          )}
+
+          {recentJobs.length > 0 && (
             <div className="history-list" style={{ marginTop: 12 }}>
               {recentJobs.map(({ id, data }) => (
                 <div
