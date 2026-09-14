@@ -118,9 +118,10 @@ async function writeContractWithFees(client, { address, functionName, args, valu
     functionName,
     args,
     value,
-    distribution: estimate.distribution,
-    messageAllocations: estimate.messageAllocations,
-    feeValue: estimate.feeValue,
+    fees: {
+      distribution: estimate.distribution,
+      feeValue: estimate.feeValue,
+    },
   });
 }
 
