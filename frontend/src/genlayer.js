@@ -239,7 +239,7 @@ export async function submitWork(client, jobId, deliverable, isUrl) {
   return writeContractWithFees(client, {
     address: CONTRACT_ADDRESS,
     functionName: "submit_work",
-    args: [BigInt(jobId), deliverable, isUrl],
+    args: [Number(jobId), deliverable, isUrl],
   });
 }
 
@@ -247,7 +247,7 @@ export async function approveJob(client, jobId) {
   return writeContractWithFees(client, {
     address: CONTRACT_ADDRESS,
     functionName: "approve",
-    args: [BigInt(jobId)],
+    args: [Number(jobId)],
   });
 }
 
@@ -263,7 +263,7 @@ export async function appealJob(client, jobId, reason) {
   return writeContractWithFees(client, {
     address: CONTRACT_ADDRESS,
     functionName: "appeal",
-    args: [BigInt(jobId), reason],
+    args: [Number(jobId), reason],
   });
 }
 
@@ -271,7 +271,7 @@ export async function finalizeJob(client, jobId) {
   return writeContractWithFees(client, {
     address: CONTRACT_ADDRESS,
     functionName: "finalize",
-    args: [BigInt(jobId)],
+    args: [Number(jobId)],
   });
 }
 
@@ -279,7 +279,7 @@ export async function recoverUnavailableJob(client, jobId, reason) {
   return writeContractWithFees(client, {
     address: CONTRACT_ADDRESS,
     functionName: "recover_unavailable_job",
-    args: [BigInt(jobId), reason],
+    args: [Number(jobId), reason],
   });
 }
 
@@ -287,7 +287,7 @@ export async function abandonJob(client, jobId, reason) {
   return writeContractWithFees(client, {
     address: CONTRACT_ADDRESS,
     functionName: "abandon_job",
-    args: [BigInt(jobId), reason],
+    args: [Number(jobId), reason],
   });
 }
 
@@ -295,7 +295,7 @@ export async function getJob(client, jobId) {
   return client.readContract({
     address: CONTRACT_ADDRESS,
     functionName: "get_job",
-    args: [BigInt(jobId)],
+    args: [Number(jobId)],
   });
 }
 
