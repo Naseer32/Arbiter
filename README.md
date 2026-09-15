@@ -84,6 +84,20 @@ Open [GenLayer Studio Next](https://studio-next.genlayer.com/) and use the built
 6. Either **Approve** (happy path) or **Dispute** (triggers independent validator re-adjudication against the original spec)
 7. Watch the job status update on-chain — check the transaction on the [explorer](https://explorer-studio-dev.genlayer.com/)
 
+### Optional: Verify Without a Wallet
+
+To confirm the contract is live on-chain without connecting a wallet, run a
+read-only check directly against Studio Next:
+
+```bash
+cd frontend
+node scripts/verify_live_contract.mjs
+```
+
+This calls `job_count()` and `get_job()` directly via genlayer-js and prints
+real on-chain job data -- confirms the deployment is live independent of the
+frontend UI.
+
 ### Notes
 - All transactions are on Studio Next/Dev (chain 61997) — this is a release-candidate environment and may reset periodically.
 - Write transactions carry a live fee estimate (deploy/write require `FeesDistribution`); the frontend handles this automatically.
