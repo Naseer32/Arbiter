@@ -119,8 +119,10 @@ async function writeContractWithFees(client, { address, functionName, args, valu
   } catch (e) {
     throw new Error(`[FEE ESTIMATE FAILED] ${e.message}`);
   }
+
+  let tx;
   try {
-    return await client.writeContract({
+    tx = await client.writeContract({
       address,
       functionName,
       args,
@@ -134,6 +136,28 @@ async function writeContractWithFees(client, { address, functionName, args, valu
   } catch (e) {
     throw new Error(`[WRITE FAILED] ${e.message}`);
   }
+
+  // ACCEPTED only means validators agreed on *an* outcome -- it does not
+  // mean the contract call itself succeeded. txExecutionResultName is the
+  // actual execution result (FINISHED_WITH_RETURN vs FINISHED_WITH_ERROR),
+  // so we wait for the receipt and check that before treating this write
+  // as successful. Without this, a reverted call (e.g. disputing an
+  // already-resolved job) could be reported to the UI as a success.
+  let receipt;
+  try {
+    receipt = await client.waitForTransactionReceipt({
+      hash: tx,
+      status: TransactionStatus.ACCEPTED,
+    });
+  } catch (e) {
+    throw new Error(`[CONFIRMATION FAILED] ${functionName} tx ${tx} did not confirm: ${e.message}`);
+  }
+
+  if (receipt?.txExecutionResultName === "FINISHED_WITH_ERROR") {
+    throw new Error(`[EXECUTION FAILED] ${functionName} reverted on-chain (tx ${tx}).`);
+  }
+
+  return tx;
 }
 
 // create_job's actual return value is encoded in GenLayer's custom
