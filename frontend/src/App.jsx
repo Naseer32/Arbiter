@@ -138,7 +138,10 @@ function Landing({ onLaunch }) {
         </p>
 
         <div className="landing-actions">
-          <button className="btn btn-primary btn-large" onClick={onLaunch}>
+          <button
+            className="btn btn-primary btn-large"
+            onClick={onLaunch}
+          >
             Launch Arbiter
             <span>→</span>
           </button>
@@ -206,7 +209,9 @@ function Landing({ onLaunch }) {
               <span>03</span>
               <div>
                 <strong>Requester approves or disputes</strong>
-                <p>Approved work pays directly. Disputes go to adjudication.</p>
+                <p>
+                  Approved work pays directly. Disputes go to adjudication.
+                </p>
               </div>
             </div>
 
@@ -214,7 +219,9 @@ function Landing({ onLaunch }) {
               <span>04</span>
               <div>
                 <strong>GenLayer judges the dispute</strong>
-                <p>Independent validators evaluate the work against the spec.</p>
+                <p>
+                  Independent validators evaluate the work against the spec.
+                </p>
               </div>
             </div>
 
@@ -222,7 +229,9 @@ function Landing({ onLaunch }) {
               <span>05</span>
               <div>
                 <strong>Verdict becomes payout</strong>
-                <p>The losing party can appeal once before finalization.</p>
+                <p>
+                  The losing party can appeal once before finalization.
+                </p>
               </div>
             </div>
           </div>
@@ -256,7 +265,9 @@ function SectionCard({
 
       <div className="section-card-title">{title}</div>
 
-      <div className="section-card-description">{description}</div>
+      <div className="section-card-description">
+        {description}
+      </div>
 
       <div className="section-card-items">
         {items.map((item) => (
@@ -333,7 +344,9 @@ function ArbiterApp({ onBack }) {
     return sum + (wei ?? 0n);
   }, 0n);
 
-  const milestoneTotal = formatWeiToGen(milestoneTotalWei.toString());
+  const milestoneTotal = formatWeiToGen(
+    milestoneTotalWei.toString()
+  );
 
   function recordTx(action, tx, relatedJobId) {
     setTxHistory((prev) => {
@@ -349,7 +362,10 @@ function ArbiterApp({ onBack }) {
       ].slice(0, 50);
 
       try {
-        localStorage.setItem("arbiter_tx_history", JSON.stringify(next));
+        localStorage.setItem(
+          "arbiter_tx_history",
+          JSON.stringify(next)
+        );
       } catch {
         // Storage unavailable.
       }
@@ -360,13 +376,24 @@ function ArbiterApp({ onBack }) {
 
   function openSection(section) {
     setActiveSection(section);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+
     setStatus(null);
   }
 
   function goDashboard() {
     setActiveSection("dashboard");
-    window.scrollTo({ top: 0, behavior: "smooth" });
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+
+    setStatus(null);
   }
 
   async function checkNetwork() {
@@ -375,7 +402,8 @@ function ArbiterApp({ onBack }) {
     if (current === null) {
       setNetworkStatus("no-wallet");
     } else if (
-      current.toLowerCase() === REQUIRED_CHAIN_ID_HEX.toLowerCase()
+      current.toLowerCase() ===
+      REQUIRED_CHAIN_ID_HEX.toLowerCase()
     ) {
       setNetworkStatus("correct");
     } else {
@@ -386,25 +414,29 @@ function ArbiterApp({ onBack }) {
   useEffect(() => {
     checkNetwork();
 
-    const unsubscribeAccounts = onAccountsChanged((newAccount) => {
-      if (!newAccount) {
-        setAccount(null);
-        setClient(null);
+    const unsubscribeAccounts = onAccountsChanged(
+      (newAccount) => {
+        if (!newAccount) {
+          setAccount(null);
+          setClient(null);
+
+          setStatus({
+            text: "Wallet disconnected.",
+            tone: "neutral",
+          });
+
+          return;
+        }
+
+        setAccount(newAccount);
+        setClient(getClient(newAccount));
+
         setStatus({
-          text: "Wallet disconnected.",
-          tone: "neutral",
+          text: `Switched account: ${newAccount}`,
+          tone: "success",
         });
-        return;
       }
-
-      setAccount(newAccount);
-      setClient(getClient(newAccount));
-
-      setStatus({
-        text: `Switched account: ${newAccount}`,
-        tone: "success",
-      });
-    });
+    );
 
     const unsubscribeChain = onChainChanged(() => {
       checkNetwork();
@@ -456,17 +488,29 @@ function ArbiterApp({ onBack }) {
 
   async function refreshLookupIfSameJob(actedOnJobId) {
     if (!client) return;
-    if (String(actedOnJobId) !== String(lookupId)) return;
+
+    if (String(actedOnJobId) !== String(lookupId)) {
+      return;
+    }
 
     try {
-      const data = await getJob(client, Number(actedOnJobId));
+      const data = await getJob(
+        client,
+        Number(actedOnJobId)
+      );
+
       setJobData(data);
     } catch {
       // Silent refresh failure.
     }
   }
 
-  async function run(actionName, fn, successText, relatedJobId) {
+  async function run(
+    actionName,
+    fn,
+    successText,
+    relatedJobId
+  ) {
     setPendingAction(actionName);
     setStatus(null);
 
@@ -478,10 +522,19 @@ function ArbiterApp({ onBack }) {
         tone: "success",
       });
 
-      recordTx(actionName, tx, relatedJobId);
+      recordTx(
+        actionName,
+        tx,
+        relatedJobId
+      );
 
-      if (relatedJobId !== undefined && relatedJobId !== "") {
-        await refreshLookupIfSameJob(relatedJobId);
+      if (
+        relatedJobId !== undefined &&
+        relatedJobId !== ""
+      ) {
+        await refreshLookupIfSameJob(
+          relatedJobId
+        );
       }
     } catch (e) {
       setStatus({
@@ -499,14 +552,17 @@ function ArbiterApp({ onBack }) {
         text: "Connect your wallet first.",
         tone: "error",
       });
+
       return;
     }
 
     if (!isValidAddress(worker)) {
       setStatus({
-        text: "Worker agent address must be a valid 0x… address.",
+        text:
+          "Worker agent address must be a valid 0x… address.",
         tone: "error",
       });
+
       return;
     }
 
@@ -515,6 +571,7 @@ function ArbiterApp({ onBack }) {
         text: "Job spec can't be empty.",
         tone: "error",
       });
+
       return;
     }
 
@@ -522,9 +579,11 @@ function ArbiterApp({ onBack }) {
 
     if (amountWei === null) {
       setStatus({
-        text: "Escrow amount must be a positive number up to 18 decimal places.",
+        text:
+          "Escrow amount must be a positive number up to 18 decimal places.",
         tone: "error",
       });
+
       return;
     }
 
@@ -532,18 +591,25 @@ function ArbiterApp({ onBack }) {
     setStatus(null);
 
     try {
-      const { tx, jobId: newJobId } = await createJob(
+      const {
+        tx,
+        jobId: newJobId,
+      } = await createJob(
         client,
         worker,
         spec,
         amountWei
       );
 
-      const hasId = newJobId !== null && newJobId !== undefined;
+      const hasId =
+        newJobId !== null &&
+        newJobId !== undefined;
 
       setStatus({
         text: `${
-          hasId ? `Job ${newJobId} created successfully.` : "Job created."
+          hasId
+            ? `Job ${newJobId} created successfully.`
+            : "Job created."
         } tx: ${tx}`,
         tone: "success",
       });
@@ -572,9 +638,11 @@ function ArbiterApp({ onBack }) {
 
     if (id === null) {
       setStatus({
-        text: "Job ID must be a positive whole number.",
+        text:
+          "Job ID must be a positive whole number.",
         tone: "error",
       });
+
       return;
     }
 
@@ -588,12 +656,19 @@ function ArbiterApp({ onBack }) {
           text: "Deliverable can't be empty.",
           tone: "error",
         });
+
         return;
       }
 
       run(
         "submit_work",
-        () => submitWork(client, id, deliverable, isUrl),
+        () =>
+          submitWork(
+            client,
+            id,
+            deliverable,
+            isUrl
+          ),
         "Work submitted.",
         id
       );
@@ -618,6 +693,7 @@ function ArbiterApp({ onBack }) {
           text: "Dispute reason can't be empty.",
           tone: "error",
         });
+
         return;
       }
 
@@ -637,12 +713,18 @@ function ArbiterApp({ onBack }) {
           text: "Appeal reason can't be empty.",
           tone: "error",
         });
+
         return;
       }
 
       run(
         "appeal",
-        () => appealJob(client, id, appealReason),
+        () =>
+          appealJob(
+            client,
+            id,
+            appealReason
+          ),
         "Appeal submitted for independent re-adjudication.",
         id
       );
@@ -664,15 +746,22 @@ function ArbiterApp({ onBack }) {
     withJobId((id) => {
       if (!recoveryReason.trim()) {
         setStatus({
-          text: "Recovery reason can't be empty.",
+          text:
+            "Recovery reason can't be empty.",
           tone: "error",
         });
+
         return;
       }
 
       run(
         "recover_unavailable_job",
-        () => recoverUnavailableJob(client, id, recoveryReason),
+        () =>
+          recoverUnavailableJob(
+            client,
+            id,
+            recoveryReason
+          ),
         "Recovery requested. 50/50 split.",
         id
       );
@@ -683,15 +772,22 @@ function ArbiterApp({ onBack }) {
     withJobId((id) => {
       if (!abandonReason.trim()) {
         setStatus({
-          text: "Abandonment reason can't be empty.",
+          text:
+            "Abandonment reason can't be empty.",
           tone: "error",
         });
+
         return;
       }
 
       run(
         "abandon_job",
-        () => abandonJob(client, id, abandonReason),
+        () =>
+          abandonJob(
+            client,
+            id,
+            abandonReason
+          ),
         "Abandonment claim submitted.",
         id
       );
@@ -701,7 +797,10 @@ function ArbiterApp({ onBack }) {
   function addMilestoneRow() {
     setMilestoneRows((rows) => [
       ...rows,
-      { spec: "", amount: "" },
+      {
+        spec: "",
+        amount: "",
+      },
     ]);
   }
 
@@ -709,15 +808,24 @@ function ArbiterApp({ onBack }) {
     setMilestoneRows((rows) =>
       rows.length <= 2
         ? rows
-        : rows.filter((_, i) => i !== index)
+        : rows.filter(
+            (_, i) => i !== index
+          )
     );
   }
 
-  function updateMilestoneRow(index, field, value) {
+  function updateMilestoneRow(
+    index,
+    field,
+    value
+  ) {
     setMilestoneRows((rows) =>
       rows.map((row, i) =>
         i === index
-          ? { ...row, [field]: value }
+          ? {
+              ...row,
+              [field]: value,
+            }
           : row
       )
     );
@@ -729,55 +837,75 @@ function ArbiterApp({ onBack }) {
         text: "Connect your wallet first.",
         tone: "error",
       });
+
       return;
     }
 
     if (!isValidAddress(milestoneWorker)) {
       setStatus({
-        text: "Worker agent address must be a valid 0x… address.",
+        text:
+          "Worker agent address must be a valid 0x… address.",
         tone: "error",
       });
+
       return;
     }
 
     if (milestoneRows.length < 2) {
       setStatus({
-        text: "At least 2 milestones are required.",
+        text:
+          "At least 2 milestones are required.",
         tone: "error",
       });
+
       return;
     }
 
-    if (milestoneRows.some((row) => !row.spec.trim())) {
+    if (
+      milestoneRows.some(
+        (row) => !row.spec.trim()
+      )
+    ) {
       setStatus({
-        text: "Every milestone needs a spec.",
+        text:
+          "Every milestone needs a spec.",
         tone: "error",
       });
+
       return;
     }
 
     const amountsWei = [];
 
     for (const row of milestoneRows) {
-      const wei = parseAmountToWei(row.amount);
+      const wei = parseAmountToWei(
+        row.amount
+      );
 
       if (wei === null) {
         setStatus({
-          text: "Every milestone amount must be positive.",
+          text:
+            "Every milestone amount must be positive.",
           tone: "error",
         });
+
         return;
       }
 
       amountsWei.push(wei);
     }
 
-    setPendingAction("create_milestone_job");
+    setPendingAction(
+      "create_milestone_job"
+    );
+
     setStatus(null);
     setMilestoneResult(null);
 
     try {
-      const specs = milestoneRows.map((row) => row.spec);
+      const specs = milestoneRows.map(
+        (row) => row.spec
+      );
 
       const {
         tx,
@@ -802,7 +930,9 @@ function ArbiterApp({ onBack }) {
       recordTx(
         "create_milestone_job",
         tx,
-        parentJobId ? String(parentJobId) : null
+        parentJobId
+          ? String(parentJobId)
+          : null
       );
 
       if (parentJobId) {
@@ -811,11 +941,14 @@ function ArbiterApp({ onBack }) {
           milestoneJobIds,
         });
 
-        await loadMilestoneGroup(parentJobId);
+        await loadMilestoneGroup(
+          parentJobId
+        );
       }
     } catch (e) {
       setStatus({
-        text: `create_milestone_job failed: ${e.message}`,
+        text:
+          `create_milestone_job failed: ${e.message}`,
         tone: "error",
       });
     } finally {
@@ -823,16 +956,21 @@ function ArbiterApp({ onBack }) {
     }
   }
 
-  async function loadMilestoneGroup(parentIdValue) {
+  async function loadMilestoneGroup(
+    parentIdValue
+  ) {
     if (!client) return;
 
-    const parentId = parseJobId(parentIdValue);
+    const parentId =
+      parseJobId(parentIdValue);
 
     if (parentId === null) {
       setStatus({
-        text: "Parent Job ID must be a positive whole number.",
+        text:
+          "Parent Job ID must be a positive whole number.",
         tone: "error",
       });
+
       return;
     }
 
@@ -840,29 +978,47 @@ function ArbiterApp({ onBack }) {
     setMsLoading(true);
 
     try {
-      const parentData = await getJob(client, parentId);
-      const childIds = await getMilestones(client, parentId);
-
-      const children = await Promise.all(
-        (childIds || []).map(async (rawId) => {
-          const idNum = Number(
-            rawId.toString ? rawId.toString() : rawId
-          );
-
-          const data = await getJob(client, idNum);
-
-          return {
-            id: idNum,
-            data,
-          };
-        })
+      const parentData = await getJob(
+        client,
+        parentId
       );
+
+      const childIds =
+        await getMilestones(
+          client,
+          parentId
+        );
+
+      const children =
+        await Promise.all(
+          (childIds || []).map(
+            async (rawId) => {
+              const idNum = Number(
+                rawId.toString
+                  ? rawId.toString()
+                  : rawId
+              );
+
+              const data =
+                await getJob(
+                  client,
+                  idNum
+                );
+
+              return {
+                id: idNum,
+                data,
+              };
+            }
+          )
+        );
 
       setMsParent(parentData);
       setMsChildren(children);
     } catch (e) {
       setStatus({
-        text: `Loading milestones failed: ${e.message}`,
+        text:
+          `Loading milestones failed: ${e.message}`,
         tone: "error",
       });
 
@@ -877,7 +1033,11 @@ function ArbiterApp({ onBack }) {
     loadMilestoneGroup(msParentId);
   }
 
-  function updateMilestoneDraft(childId, field, value) {
+  function updateMilestoneDraft(
+    childId,
+    field,
+    value
+  ) {
     setMsChildDrafts((prev) => ({
       ...prev,
       [childId]: {
@@ -889,17 +1049,22 @@ function ArbiterApp({ onBack }) {
     }));
   }
 
-  async function handleMilestoneSubmit(childId) {
-    const draft = msChildDrafts[childId] || {
-      deliverable: "",
-      isUrl: false,
-    };
+  async function handleMilestoneSubmit(
+    childId
+  ) {
+    const draft =
+      msChildDrafts[childId] || {
+        deliverable: "",
+        isUrl: false,
+      };
 
     if (!draft.deliverable.trim()) {
       setStatus({
-        text: "Deliverable can't be empty.",
+        text:
+          "Deliverable can't be empty.",
         tone: "error",
       });
+
       return;
     }
 
@@ -919,7 +1084,8 @@ function ArbiterApp({ onBack }) {
       );
 
       setStatus({
-        text: `Milestone #${childId} submitted. tx: ${tx}`,
+        text:
+          `Milestone #${childId} submitted. tx: ${tx}`,
         tone: "success",
       });
 
@@ -929,10 +1095,13 @@ function ArbiterApp({ onBack }) {
         String(childId)
       );
 
-      await loadMilestoneGroup(msParentId);
+      await loadMilestoneGroup(
+        msParentId
+      );
     } catch (e) {
       setStatus({
-        text: `submit_work failed: ${e.message}`,
+        text:
+          `submit_work failed: ${e.message}`,
         tone: "error",
       });
     } finally {
@@ -943,7 +1112,9 @@ function ArbiterApp({ onBack }) {
     }
   }
 
-  async function handleMilestoneApprove(childId) {
+  async function handleMilestoneApprove(
+    childId
+  ) {
     setMsChildPending((prev) => ({
       ...prev,
       [childId]: "approve",
@@ -952,10 +1123,14 @@ function ArbiterApp({ onBack }) {
     setStatus(null);
 
     try {
-      const tx = await approveJob(client, childId);
+      const tx = await approveJob(
+        client,
+        childId
+      );
 
       setStatus({
-        text: `Milestone #${childId} approved. Worker paid. tx: ${tx}`,
+        text:
+          `Milestone #${childId} approved. Worker paid. tx: ${tx}`,
         tone: "success",
       });
 
@@ -965,10 +1140,13 @@ function ArbiterApp({ onBack }) {
         String(childId)
       );
 
-      await loadMilestoneGroup(msParentId);
+      await loadMilestoneGroup(
+        msParentId
+      );
     } catch (e) {
       setStatus({
-        text: `approve failed: ${e.message}`,
+        text:
+          `approve failed: ${e.message}`,
         tone: "error",
       });
     } finally {
@@ -984,9 +1162,20 @@ function ArbiterApp({ onBack }) {
 
     if (id === null) {
       setStatus({
-        text: "Job ID must be a positive whole number.",
+        text:
+          "Job ID must be a positive whole number.",
         tone: "error",
       });
+
+      return;
+    }
+
+    if (!client) {
+      setStatus({
+        text: "Connect your wallet first.",
+        tone: "error",
+      });
+
       return;
     }
 
@@ -994,7 +1183,10 @@ function ArbiterApp({ onBack }) {
     setStatus(null);
 
     try {
-      const data = await getJob(client, id);
+      const data = await getJob(
+        client,
+        id
+      );
 
       setJobData(data);
       setJobId(String(id));
@@ -1002,7 +1194,8 @@ function ArbiterApp({ onBack }) {
       setShowRawJson(false);
     } catch (e) {
       setStatus({
-        text: `get_job failed: ${e.message}`,
+        text:
+          `get_job failed: ${e.message}`,
         tone: "error",
       });
     } finally {
@@ -1016,10 +1209,13 @@ function ArbiterApp({ onBack }) {
     setRecentLoading(true);
 
     try {
-      const count = await getJobCount(client);
+      const count =
+        await getJobCount(client);
 
       const total = Number(
-        count?.toString ? count.toString() : count
+        count?.toString
+          ? count.toString()
+          : count
       );
 
       const ids = [];
@@ -1032,21 +1228,33 @@ function ArbiterApp({ onBack }) {
         ids.push(i);
       }
 
-      const jobs = await Promise.all(
-        ids.map(async (id) => {
-          try {
-            const data = await getJob(client, id);
-            return { id, data };
-          } catch {
-            return null;
-          }
-        })
-      );
+      const jobs =
+        await Promise.all(
+          ids.map(async (id) => {
+            try {
+              const data =
+                await getJob(
+                  client,
+                  id
+                );
 
-      setRecentJobs(jobs.filter(Boolean));
+              return {
+                id,
+                data,
+              };
+            } catch {
+              return null;
+            }
+          })
+        );
+
+      setRecentJobs(
+        jobs.filter(Boolean)
+      );
     } catch (e) {
       setStatus({
-        text: `Loading recent jobs failed: ${e.message}`,
+        text:
+          `Loading recent jobs failed: ${e.message}`,
         tone: "error",
       });
     } finally {
@@ -1054,7 +1262,10 @@ function ArbiterApp({ onBack }) {
     }
   }
 
-  function handleRecentJobClick(id, data) {
+  function handleRecentJobClick(
+    id,
+    data
+  ) {
     setLookupId(String(id));
     setJobId(String(id));
     setJobData(data);
@@ -1075,7 +1286,8 @@ function ArbiterApp({ onBack }) {
       case "open":
         return {
           label: "Open",
-          description: "Waiting for the worker to submit work.",
+          description:
+            "Waiting for the worker to submit work.",
           tone: "open",
           validActions:
             "Submit Work, Abandon after the grace period",
@@ -1084,7 +1296,8 @@ function ArbiterApp({ onBack }) {
       case "submitted":
         return {
           label: "Submitted",
-          description: "Work has been submitted and is awaiting requester action.",
+          description:
+            "Work has been submitted and is awaiting requester action.",
           tone: "open",
           validActions:
             "Approve, Dispute, Abandon after the grace period",
@@ -1093,9 +1306,11 @@ function ArbiterApp({ onBack }) {
       case "disputed":
         return {
           label: "Disputed",
-          description: "The dispute is moving through adjudication.",
+          description:
+            "The dispute is moving through adjudication.",
           tone: "neutral",
-          validActions: "No action during this transient state",
+          validActions:
+            "No action during this transient state",
         };
 
       case "verdict_pending":
@@ -1103,7 +1318,9 @@ function ArbiterApp({ onBack }) {
           label: `Verdict: ${data.pending_verdict}`,
           description: data.verdict_at
             ? `Appeal window closes ${new Date(
-                new Date(data.verdict_at).getTime() +
+                new Date(
+                  data.verdict_at
+                ).getTime() +
                   APPEAL_WINDOW_MS
               ).toLocaleString()}`
             : "Appeal window is currently open.",
@@ -1118,23 +1335,30 @@ function ArbiterApp({ onBack }) {
           description:
             "The submitted evidence could not be verified.",
           tone: "danger",
-          validActions: "Request fair recovery",
+          validActions:
+            "Request fair recovery",
         };
 
       case "resolved":
         return {
           label: "Resolved",
-          description: `Paid to ${data.payout_to}${
-            data.appeal_used ? " via appeal" : ""
+          description: `Paid to ${
+            data.payout_to
+          }${
+            data.appeal_used
+              ? " via appeal"
+              : ""
           }.`,
           tone: "success",
-          validActions: "No action. Job is closed.",
+          validActions:
+            "No action. Job is closed.",
         };
 
       default:
         return {
           label: data.status,
-          description: "Current on-chain job status.",
+          description:
+            "Current on-chain job status.",
           tone: "neutral",
           validActions: "Unknown",
         };
@@ -1148,10 +1372,13 @@ function ArbiterApp({ onBack }) {
       return (
         <div className="network-banner tone-warn">
           <IconAlertTriangle />
+
           <div className="network-banner-content">
             <strong>Wrong network</strong>
+
             <span>
-              Arbiter runs on {REQUIRED_NETWORK_NAME}.
+              Arbiter runs on{" "}
+              {REQUIRED_NETWORK_NAME}.
             </span>
           </div>
 
@@ -1169,10 +1396,15 @@ function ArbiterApp({ onBack }) {
       return (
         <div className="network-banner tone-info">
           <IconWallet />
+
           <div className="network-banner-content">
-            <strong>Wallet not detected</strong>
+            <strong>
+              Wallet not detected
+            </strong>
+
             <span>
-              Connect a compatible wallet to use Arbiter.
+              Connect a compatible wallet to
+              use Arbiter.
             </span>
           </div>
         </div>
@@ -1193,8 +1425,10 @@ function ArbiterApp({ onBack }) {
 
             <div>
               <h3>Find a job</h3>
+
               <p>
-                Inspect the current status, verdict and payout.
+                Inspect the current status,
+                verdict and payout.
               </p>
             </div>
           </div>
@@ -1203,44 +1437,61 @@ function ArbiterApp({ onBack }) {
             <input
               className="input"
               placeholder="Enter Job ID"
+              inputMode="numeric"
               value={lookupId}
-              onChange={(e) => setLookupId(e.target.value)}
+              onChange={(e) =>
+                setLookupId(
+                  e.target.value
+                )
+              }
             />
 
             <button
               className="btn btn-primary"
               onClick={handleLookup}
               disabled={
-                !client || pendingAction === "lookup"
+                !client ||
+                pendingAction ===
+                  "lookup"
               }
             >
-              {pendingAction === "lookup" ? (
+              {pendingAction ===
+              "lookup" ? (
                 <span className="spinner" />
               ) : (
                 <IconSearch />
               )}
 
-              {pendingAction === "lookup"
+              {pendingAction ===
+              "lookup"
                 ? "Looking up…"
                 : "Get Job"}
             </button>
           </div>
 
-          {jobData && viewingFromRecent && (
-            <button
-              className="btn-ghost back-inline"
-              onClick={handleBackToRecent}
-            >
-              ← Back to Recent Jobs
-            </button>
-          )}
+          {jobData &&
+            viewingFromRecent && (
+              <button
+                className="btn-ghost back-inline"
+                onClick={
+                  handleBackToRecent
+                }
+              >
+                ← Back to Recent Jobs
+              </button>
+            )}
 
           {jobData && info && (
             <div className="job-result">
-              <div className={`job-result-status tone-${info.tone}`}>
+              <div
+                className={`job-result-status tone-${info.tone}`}
+              >
                 <div>
                   <span className="status-dot" />
-                  <strong>{info.label}</strong>
+
+                  <strong>
+                    {info.label}
+                  </strong>
                 </div>
 
                 <span>
@@ -1256,39 +1507,64 @@ function ArbiterApp({ onBack }) {
                 <div className="job-detail-grid">
                   <div className="job-detail">
                     <span>Status</span>
-                    <strong>{jobData.status}</strong>
+
+                    <strong>
+                      {jobData.status}
+                    </strong>
                   </div>
 
                   <div className="job-detail">
                     <span>Escrow</span>
+
                     <strong>
-                      {formatWeiToGen(jobData.amount)} GEN
+                      {formatWeiToGen(
+                        jobData.amount
+                      )}{" "}
+                      GEN
                     </strong>
                   </div>
 
                   <div className="job-detail job-detail-wide">
-                    <span>Specification</span>
-                    <strong>{jobData.spec}</strong>
+                    <span>
+                      Specification
+                    </span>
+
+                    <strong>
+                      {jobData.spec}
+                    </strong>
                   </div>
                 </div>
 
                 <div className="valid-actions">
-                  <span>Available:</span>
+                  <span>
+                    Available:
+                  </span>
+
                   {info.validActions}
                 </div>
 
                 <div className="job-result-actions">
                   <button
                     className="btn btn-outline btn-sm"
-                    onClick={() => setJobId(String(lookupId))}
+                    onClick={() =>
+                      setJobId(
+                        String(
+                          lookupId
+                        )
+                      )
+                    }
                   >
-                    Use Job #{lookupId}
+                    Use Job #
+                    {lookupId}
                   </button>
 
                   <button
-                    className="btn btn-ghost-small"
+                    className="btn-ghost-small"
                     onClick={() =>
-                      setShowRawJson((value) => !value)
+                      setShowRawJson(
+                        (value) =>
+                          !value
+                      )
                     }
                   >
                     {showRawJson
@@ -1299,47 +1575,70 @@ function ArbiterApp({ onBack }) {
 
                 {showRawJson && (
                   <pre className="job-json">
-                    {JSON.stringify(jobData, null, 2)}
+                    {JSON.stringify(
+                      jobData,
+                      null,
+                      2
+                    )}
                   </pre>
                 )}
               </div>
             </div>
           )}
 
-          {jobData && jobData.is_milestone_parent && (
-            <div className="inline-notice">
-              <div>
-                <strong>Milestone parent</strong>
-                <span>
-                  {jobData.milestone_count} milestones
-                </span>
-              </div>
-
-              <button
-                className="btn btn-outline btn-sm"
-                onClick={() =>
-                  loadMilestoneGroup(lookupId)
-                }
-                disabled={!client || msLoading}
-              >
-                {msLoading
-                  ? "Loading…"
-                  : "View Milestones"}
-              </button>
-            </div>
-          )}
-
           {jobData &&
-            !jobData.is_milestone_parent &&
-            jobData.parent_job_id !== "0" && (
+            jobData.is_milestone_parent && (
               <div className="inline-notice">
                 <div>
                   <strong>
-                    Milestone #{jobData.milestone_index}
+                    Milestone parent
                   </strong>
 
                   <span>
-                    Parent #{jobData.parent_job_id}
+                    {
+                      jobData.milestone_count
+                    }{" "}
+                    milestones
+                  </span>
+                </div>
+
+                <button
+                  className="btn btn-outline btn-sm"
+                  onClick={() =>
+                    loadMilestoneGroup(
+                      lookupId
+                    )
+                  }
+                  disabled={
+                    !client ||
+                    msLoading
+                  }
+                >
+                  {msLoading
+                    ? "Loading…"
+                    : "View Milestones"}
+                </button>
+              </div>
+            )}
+
+          {jobData &&
+            !jobData.is_milestone_parent &&
+            jobData.parent_job_id !==
+              "0" && (
+              <div className="inline-notice">
+                <div>
+                  <strong>
+                    Milestone #
+                    {
+                      jobData.milestone_index
+                    }
+                  </strong>
+
+                  <span>
+                    Parent #
+                    {
+                      jobData.parent_job_id
+                    }
                   </span>
                 </div>
 
@@ -1350,7 +1649,10 @@ function ArbiterApp({ onBack }) {
                       jobData.parent_job_id
                     )
                   }
-                  disabled={!client || msLoading}
+                  disabled={
+                    !client ||
+                    msLoading
+                  }
                 >
                   {msLoading
                     ? "Loading…"
@@ -1368,16 +1670,23 @@ function ArbiterApp({ onBack }) {
 
             <div>
               <h3>Recent jobs</h3>
+
               <p>
-                Browse the latest jobs without entering an ID.
+                Browse the latest jobs
+                without entering an ID.
               </p>
             </div>
           </div>
 
           <button
             className="btn btn-outline"
-            onClick={loadRecentJobs}
-            disabled={!client || recentLoading}
+            onClick={
+              loadRecentJobs
+            }
+            disabled={
+              !client ||
+              recentLoading
+            }
           >
             {recentLoading && (
               <span className="spinner spinner-dark" />
@@ -1388,39 +1697,52 @@ function ArbiterApp({ onBack }) {
               : "Load Recent Jobs"}
           </button>
 
-          {recentJobs.length > 0 && (
+          {recentJobs.length >
+            0 && (
             <>
               <button
                 className="btn-ghost back-inline"
-                onClick={() => setRecentJobs([])}
+                onClick={() =>
+                  setRecentJobs([])
+                }
               >
                 Hide recent jobs
               </button>
 
               <div className="recent-job-list">
-                {recentJobs.map(({ id, data }) => (
-                  <button
-                    type="button"
-                    className="recent-job"
-                    key={id}
-                    onClick={() =>
-                      handleRecentJobClick(id, data)
-                    }
-                  >
-                    <div className="recent-job-number">
-                      #{id}
-                    </div>
+                {recentJobs.map(
+                  ({ id, data }) => (
+                    <button
+                      type="button"
+                      className="recent-job"
+                      key={id}
+                      onClick={() =>
+                        handleRecentJobClick(
+                          id,
+                          data
+                        )
+                      }
+                    >
+                      <div className="recent-job-number">
+                        #{id}
+                      </div>
 
-                    <div className="recent-job-main">
-                      <strong>{data.status}</strong>
-                      <span>{data.spec}</span>
-                    </div>
+                      <div className="recent-job-main">
+                        <strong>
+                          {data.status}
+                        </strong>
 
-                    <span className="recent-job-arrow">
-                      →
-                    </span>
-                  </button>
-                ))}
+                        <span>
+                          {data.spec}
+                        </span>
+                      </div>
+
+                      <span className="recent-job-arrow">
+                        →
+                      </span>
+                    </button>
+                  )
+                )}
               </div>
             </>
           )}
@@ -1434,8 +1756,10 @@ function ArbiterApp({ onBack }) {
 
             <div>
               <h3>Create a job</h3>
+
               <p>
-                Escrow GEN against a natural-language
+                Escrow GEN against a
+                natural-language
                 specification.
               </p>
             </div>
@@ -1449,7 +1773,11 @@ function ArbiterApp({ onBack }) {
             className="input"
             placeholder="0x…"
             value={worker}
-            onChange={(e) => setWorker(e.target.value)}
+            onChange={(e) =>
+              setWorker(
+                e.target.value
+              )
+            }
           />
 
           <label className="field-label">
@@ -1460,7 +1788,9 @@ function ArbiterApp({ onBack }) {
             className="textarea"
             placeholder="What should the worker agent deliver?"
             value={spec}
-            onChange={(e) => setSpec(e.target.value)}
+            onChange={(e) =>
+              setSpec(e.target.value)
+            }
             rows={4}
           />
 
@@ -1472,25 +1802,36 @@ function ArbiterApp({ onBack }) {
             <input
               className="input"
               placeholder="7"
+              inputMode="decimal"
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              onChange={(e) =>
+                setAmount(
+                  e.target.value
+                )
+              }
             />
+
             <span>GEN</span>
           </div>
 
           <button
             className="btn btn-primary btn-full"
-            onClick={handleCreateJob}
+            onClick={
+              handleCreateJob
+            }
             disabled={
               !client ||
-              pendingAction === "create_job"
+              pendingAction ===
+                "create_job"
             }
           >
-            {pendingAction === "create_job" && (
+            {pendingAction ===
+              "create_job" && (
               <span className="spinner" />
             )}
 
-            {pendingAction === "create_job"
+            {pendingAction ===
+            "create_job"
               ? "Creating…"
               : "Create Job"}
           </button>
@@ -1504,17 +1845,27 @@ function ArbiterApp({ onBack }) {
       <div className="section-content">
         <div className="action-context">
           <div>
-            <span>Working with</span>
+            <span>
+              Working with
+            </span>
+
             <strong>
-              {jobId ? `Job #${jobId}` : "No job selected"}
+              {jobId
+                ? `Job #${jobId}`
+                : "No job selected"}
             </strong>
           </div>
 
           <input
             className="input"
             placeholder="Job ID"
+            inputMode="numeric"
             value={jobId}
-            onChange={(e) => setJobId(e.target.value)}
+            onChange={(e) =>
+              setJobId(
+                e.target.value
+              )
+            }
           />
         </div>
 
@@ -1529,8 +1880,9 @@ function ArbiterApp({ onBack }) {
             </div>
 
             <p>
-              Submit text, code, or URL evidence for the
-              selected job.
+              Submit text, code, or URL
+              evidence for the selected
+              job.
             </p>
 
             <textarea
@@ -1538,7 +1890,9 @@ function ArbiterApp({ onBack }) {
               placeholder="URL or text/code"
               value={deliverable}
               onChange={(e) =>
-                setDeliverable(e.target.value)
+                setDeliverable(
+                  e.target.value
+                )
               }
               rows={4}
             />
@@ -1548,25 +1902,33 @@ function ArbiterApp({ onBack }) {
                 type="checkbox"
                 checked={isUrl}
                 onChange={(e) =>
-                  setIsUrl(e.target.checked)
+                  setIsUrl(
+                    e.target.checked
+                  )
                 }
               />
+
               Deliverable is a URL
             </label>
 
             <button
               className="btn btn-primary btn-full"
-              onClick={handleSubmitWork}
+              onClick={
+                handleSubmitWork
+              }
               disabled={
                 !client ||
-                pendingAction === "submit_work"
+                pendingAction ===
+                  "submit_work"
               }
             >
-              {pendingAction === "submit_work" && (
+              {pendingAction ===
+                "submit_work" && (
                 <span className="spinner" />
               )}
 
-              {pendingAction === "submit_work"
+              {pendingAction ===
+              "submit_work"
                 ? "Submitting…"
                 : "Submit Work"}
             </button>
@@ -1582,23 +1944,29 @@ function ArbiterApp({ onBack }) {
             </div>
 
             <p>
-              Approve the submitted work and release the
+              Approve the submitted
+              work and release the
               escrow to the worker.
             </p>
 
             <button
               className="btn btn-primary btn-full action-bottom"
-              onClick={handleApprove}
+              onClick={
+                handleApprove
+              }
               disabled={
                 !client ||
-                pendingAction === "approve"
+                pendingAction ===
+                  "approve"
               }
             >
-              {pendingAction === "approve" && (
+              {pendingAction ===
+                "approve" && (
                 <span className="spinner" />
               )}
 
-              {pendingAction === "approve"
+              {pendingAction ===
+              "approve"
                 ? "Approving…"
                 : "Approve & Pay"}
             </button>
@@ -1614,8 +1982,10 @@ function ArbiterApp({ onBack }) {
             </div>
 
             <p>
-              Send the work to GenLayer adjudication when
-              it does not satisfy the specification.
+              Send the work to GenLayer
+              adjudication when it does
+              not satisfy the
+              specification.
             </p>
 
             <textarea
@@ -1623,24 +1993,31 @@ function ArbiterApp({ onBack }) {
               placeholder="Why does the work fail the specification?"
               value={reason}
               onChange={(e) =>
-                setReason(e.target.value)
+                setReason(
+                  e.target.value
+                )
               }
               rows={3}
             />
 
             <button
               className="btn btn-danger btn-full"
-              onClick={handleDispute}
+              onClick={
+                handleDispute
+              }
               disabled={
                 !client ||
-                pendingAction === "dispute"
+                pendingAction ===
+                  "dispute"
               }
             >
-              {pendingAction === "dispute" && (
+              {pendingAction ===
+                "dispute" && (
                 <span className="spinner" />
               )}
 
-              {pendingAction === "dispute"
+              {pendingAction ===
+              "dispute"
                 ? "Disputing…"
                 : "Dispute Job"}
             </button>
@@ -1656,8 +2033,9 @@ function ArbiterApp({ onBack }) {
             </div>
 
             <p>
-              Available to the losing party during the
-              appeal window.
+              Available to the losing
+              party during the appeal
+              window.
             </p>
 
             <textarea
@@ -1665,24 +2043,31 @@ function ArbiterApp({ onBack }) {
               placeholder="Why should the verdict be reconsidered?"
               value={appealReason}
               onChange={(e) =>
-                setAppealReason(e.target.value)
+                setAppealReason(
+                  e.target.value
+                )
               }
               rows={3}
             />
 
             <button
               className="btn btn-outline btn-full"
-              onClick={handleAppeal}
+              onClick={
+                handleAppeal
+              }
               disabled={
                 !client ||
-                pendingAction === "appeal"
+                pendingAction ===
+                  "appeal"
               }
             >
-              {pendingAction === "appeal" && (
+              {pendingAction ===
+                "appeal" && (
                 <span className="spinner" />
               )}
 
-              {pendingAction === "appeal"
+              {pendingAction ===
+              "appeal"
                 ? "Appealing…"
                 : "Appeal Verdict"}
             </button>
@@ -1698,23 +2083,29 @@ function ArbiterApp({ onBack }) {
             </div>
 
             <p>
-              Finalize the original verdict once the appeal
+              Finalize the original
+              verdict once the appeal
               window has closed.
             </p>
 
             <button
               className="btn btn-primary btn-full action-bottom"
-              onClick={handleFinalize}
+              onClick={
+                handleFinalize
+              }
               disabled={
                 !client ||
-                pendingAction === "finalize"
+                pendingAction ===
+                  "finalize"
               }
             >
-              {pendingAction === "finalize" && (
+              {pendingAction ===
+                "finalize" && (
                 <span className="spinner" />
               )}
 
-              {pendingAction === "finalize"
+              {pendingAction ===
+              "finalize"
                 ? "Finalizing…"
                 : "Finalize Verdict"}
             </button>
@@ -1734,10 +2125,16 @@ function ArbiterApp({ onBack }) {
             </div>
 
             <div>
-              <h3>Create milestone job</h3>
+              <h3>
+                Create milestone
+                job
+              </h3>
+
               <p>
-                Split one engagement into independent
-                escrowed milestone jobs.
+                Split one engagement
+                into independent
+                escrowed milestone
+                jobs.
               </p>
             </div>
           </div>
@@ -1751,7 +2148,9 @@ function ArbiterApp({ onBack }) {
             placeholder="0x…"
             value={milestoneWorker}
             onChange={(e) =>
-              setMilestoneWorker(e.target.value)
+              setMilestoneWorker(
+                e.target.value
+              )
             }
           />
 
@@ -1760,80 +2159,104 @@ function ArbiterApp({ onBack }) {
           </label>
 
           <div className="milestone-editor">
-            {milestoneRows.map((row, index) => (
-              <div
-                className="milestone-row"
-                key={index}
-              >
-                <div className="milestone-number">
-                  {String(index + 1).padStart(2, "0")}
-                </div>
+            {milestoneRows.map(
+              (row, index) => (
+                <div
+                  className="milestone-row"
+                  key={index}
+                >
+                  <div className="milestone-number">
+                    {String(
+                      index + 1
+                    ).padStart(2, "0")}
+                  </div>
 
-                <textarea
-                  className="textarea milestone-row-spec"
-                  placeholder={`Milestone ${index + 1} specification`}
-                  value={row.spec}
-                  onChange={(e) =>
-                    updateMilestoneRow(
-                      index,
-                      "spec",
-                      e.target.value
-                    )
-                  }
-                  rows={3}
-                />
-
-                <div className="milestone-amount">
-                  <input
-                    className="input"
-                    placeholder="Amount"
-                    value={row.amount}
+                  <textarea
+                    className="textarea milestone-row-spec"
+                    placeholder={`Milestone ${
+                      index + 1
+                    } specification`}
+                    value={row.spec}
                     onChange={(e) =>
                       updateMilestoneRow(
                         index,
-                        "amount",
+                        "spec",
                         e.target.value
                       )
                     }
+                    rows={3}
                   />
-                  <span>GEN</span>
-                </div>
 
-                <button
-                  type="button"
-                  className="milestone-remove"
-                  onClick={() =>
-                    removeMilestoneRow(index)
-                  }
-                  disabled={milestoneRows.length <= 2}
-                  title="Remove milestone"
-                >
-                  ×
-                </button>
-              </div>
-            ))}
+                  <div className="milestone-amount">
+                    <input
+                      className="input"
+                      placeholder="Amount"
+                      inputMode="decimal"
+                      value={
+                        row.amount
+                      }
+                      onChange={(e) =>
+                        updateMilestoneRow(
+                          index,
+                          "amount",
+                          e.target.value
+                        )
+                      }
+                    />
+
+                    <span>GEN</span>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="milestone-remove"
+                    onClick={() =>
+                      removeMilestoneRow(
+                        index
+                      )
+                    }
+                    disabled={
+                      milestoneRows.length <=
+                      2
+                    }
+                    title="Remove milestone"
+                  >
+                    ×
+                  </button>
+                </div>
+              )
+            )}
           </div>
 
           <div className="milestone-controls">
             <button
               type="button"
               className="btn btn-outline btn-sm"
-              onClick={addMilestoneRow}
+              onClick={
+                addMilestoneRow
+              }
             >
               + Add Milestone
             </button>
 
             <div className="milestone-total-card">
-              <span>Total escrow</span>
+              <span>
+                Total escrow
+              </span>
+
               <strong>
-                {milestoneTotal || 0} GEN
+                {milestoneTotal ||
+                  0}{" "}
+                GEN
               </strong>
             </div>
           </div>
 
           <button
             className="btn btn-primary btn-full"
-            onClick={handleCreateMilestoneJob}
+            onClick={
+              handleCreateMilestoneJob
+            }
             disabled={
               !client ||
               pendingAction ===
@@ -1857,13 +2280,19 @@ function ArbiterApp({ onBack }) {
 
               <div>
                 <strong>
-                  Parent #{milestoneResult.parentJobId}
+                  Parent #
+                  {
+                    milestoneResult.parentJobId
+                  }
                 </strong>
 
                 <span>
                   Milestones:{" "}
                   {milestoneResult.milestoneJobIds
-                    .map((id) => `#${id}`)
+                    .map(
+                      (id) =>
+                        `#${id}`
+                    )
                     .join(", ")}
                 </span>
               </div>
@@ -1878,9 +2307,14 @@ function ArbiterApp({ onBack }) {
             </div>
 
             <div>
-              <h3>Manage milestone group</h3>
+              <h3>
+                Manage milestone
+                group
+              </h3>
+
               <p>
-                Load a parent job and manage each milestone
+                Load a parent job and
+                manage each milestone
                 individually.
               </p>
             </div>
@@ -1890,16 +2324,24 @@ function ArbiterApp({ onBack }) {
             <input
               className="input"
               placeholder="Parent Job ID"
+              inputMode="numeric"
               value={msParentId}
               onChange={(e) =>
-                setMsParentId(e.target.value)
+                setMsParentId(
+                  e.target.value
+                )
               }
             />
 
             <button
               className="btn btn-primary"
-              onClick={handleLoadMilestoneGroupClick}
-              disabled={!client || msLoading}
+              onClick={
+                handleLoadMilestoneGroupClick
+              }
+              disabled={
+                !client ||
+                msLoading
+              }
             >
               {msLoading && (
                 <span className="spinner" />
@@ -1913,154 +2355,207 @@ function ArbiterApp({ onBack }) {
 
           {msParent && (
             <div className="milestone-parent-status">
-              <span>Parent status</span>
-              <strong>{msParent.status}</strong>
+              <span>
+                Parent status
+              </span>
+
+              <strong>
+                {msParent.status}
+              </strong>
             </div>
           )}
 
-          {msChildren.length > 0 && (
+          {msChildren.length >
+            0 && (
             <div className="milestone-list">
-              {msChildren.map(({ id, data }) => {
-                const childInfo = statusInfo(data);
+              {msChildren.map(
+                ({ id, data }) => {
+                  const childInfo =
+                    statusInfo(
+                      data
+                    );
 
-                const draft =
-                  msChildDrafts[id] || {
-                    deliverable: "",
-                    isUrl: false,
-                  };
+                  const draft =
+                    msChildDrafts[
+                      id
+                    ] || {
+                      deliverable:
+                        "",
+                      isUrl:
+                        false,
+                    };
 
-                const pending =
-                  msChildPending[id];
+                  const pending =
+                    msChildPending[
+                      id
+                    ];
 
-                return (
-                  <div
-                    className="milestone-card"
-                    key={id}
-                  >
-                    <div className="milestone-card-head">
-                      <div className="milestone-card-id">
-                        Milestone {data.milestone_index}
+                  return (
+                    <div
+                      className="milestone-card"
+                      key={id}
+                    >
+                      <div className="milestone-card-head">
+                        <div className="milestone-card-id">
+                          Milestone{" "}
+                          {
+                            data.milestone_index
+                          }
+                        </div>
+
+                        <span
+                          className={`milestone-card-badge tone-${
+                            childInfo?.tone ||
+                            "neutral"
+                          }`}
+                        >
+                          {
+                            data.status
+                          }
+                        </span>
+
+                        <div className="milestone-card-amount">
+                          {formatWeiToGen(
+                            data.amount
+                          )}{" "}
+                          GEN
+                        </div>
                       </div>
 
-                      <span
-                        className={`milestone-card-badge tone-${
-                          childInfo?.tone || "neutral"
-                        }`}
-                      >
-                        {data.status}
-                      </span>
-
-                      <div className="milestone-card-amount">
-                        {formatWeiToGen(
-                          data.amount
-                        )}{" "}
-                        GEN
+                      <div className="milestone-card-spec">
+                        {data.spec}
                       </div>
-                    </div>
 
-                    <div className="milestone-card-spec">
-                      {data.spec}
-                    </div>
+                      <div className="milestone-card-body">
+                        {data.status ===
+                          "open" && (
+                          <>
+                            <label className="field-label">
+                              Deliverable
+                            </label>
 
-                    <div className="milestone-card-body">
-                      {data.status === "open" && (
-                        <>
-                          <label className="field-label">
-                            Deliverable
-                          </label>
-
-                          <textarea
-                            className="textarea"
-                            placeholder="URL or text/code"
-                            value={
-                              draft.deliverable
-                            }
-                            onChange={(e) =>
-                              updateMilestoneDraft(
-                                id,
-                                "deliverable",
-                                e.target.value
-                              )
-                            }
-                            rows={3}
-                          />
-
-                          <label className="checkbox-row">
-                            <input
-                              type="checkbox"
-                              checked={draft.isUrl}
-                              onChange={(e) =>
+                            <textarea
+                              className="textarea"
+                              placeholder="URL or text/code"
+                              value={
+                                draft.deliverable
+                              }
+                              onChange={(
+                                e
+                              ) =>
                                 updateMilestoneDraft(
                                   id,
-                                  "isUrl",
-                                  e.target.checked
+                                  "deliverable",
+                                  e.target.value
                                 )
                               }
+                              rows={
+                                3
+                              }
                             />
-                            Deliverable is a URL
-                          </label>
 
+                            <label className="checkbox-row">
+                              <input
+                                type="checkbox"
+                                checked={
+                                  draft.isUrl
+                                }
+                                onChange={(
+                                  e
+                                ) =>
+                                  updateMilestoneDraft(
+                                    id,
+                                    "isUrl",
+                                    e
+                                      .target
+                                      .checked
+                                  )
+                                }
+                              />
+
+                              Deliverable
+                              is a URL
+                            </label>
+
+                            <button
+                              className="btn btn-primary"
+                              onClick={() =>
+                                handleMilestoneSubmit(
+                                  id
+                                )
+                              }
+                              disabled={
+                                !client ||
+                                pending ===
+                                  "submit_work"
+                              }
+                            >
+                              {pending ===
+                                "submit_work" && (
+                                <span className="spinner" />
+                              )}
+
+                              {pending ===
+                              "submit_work"
+                                ? "Submitting…"
+                                : "Submit Work"}
+                            </button>
+                          </>
+                        )}
+
+                        {data.status ===
+                          "submitted" && (
                           <button
                             className="btn btn-primary"
                             onClick={() =>
-                              handleMilestoneSubmit(id)
+                              handleMilestoneApprove(
+                                id
+                              )
                             }
                             disabled={
                               !client ||
                               pending ===
-                                "submit_work"
+                                "approve"
                             }
                           >
                             {pending ===
-                              "submit_work" && (
+                              "approve" && (
                               <span className="spinner" />
                             )}
 
                             {pending ===
-                            "submit_work"
-                              ? "Submitting…"
-                              : "Submit Work"}
+                            "approve"
+                              ? "Approving…"
+                              : "Approve & Pay"}
                           </button>
-                        </>
-                      )}
-
-                      {data.status === "submitted" && (
-                        <button
-                          className="btn btn-primary"
-                          onClick={() =>
-                            handleMilestoneApprove(id)
-                          }
-                          disabled={
-                            !client ||
-                            pending === "approve"
-                          }
-                        >
-                          {pending === "approve" && (
-                            <span className="spinner" />
-                          )}
-
-                          {pending === "approve"
-                            ? "Approving…"
-                            : "Approve & Pay"}
-                        </button>
-                      )}
-
-                      {data.status !== "open" &&
-                        data.status !==
-                          "submitted" && (
-                          <div className="milestone-note">
-                            {childInfo?.validActions}
-                            <span>
-                              Use Job Actions with Job #
-                              {id} for dispute, appeal,
-                              finalize or recovery.
-                            </span>
-                          </div>
                         )}
+
+                        {data.status !==
+                          "open" &&
+                          data.status !==
+                            "submitted" && (
+                            <div className="milestone-note">
+                              {
+                                childInfo?.validActions
+                              }
+
+                              <span>
+                                Use Job
+                                Actions
+                                with Job #
+                                {id} for
+                                dispute,
+                                appeal,
+                                finalize or
+                                recovery.
+                              </span>
+                            </div>
+                          )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                }
+              )}
             </div>
           )}
         </div>
@@ -2078,10 +2573,15 @@ function ArbiterApp({ onBack }) {
             </div>
 
             <div>
-              <h3>Evidence unavailable</h3>
+              <h3>
+                Evidence unavailable
+              </h3>
+
               <p>
-                Request the deterministic 50/50 recovery
-                when submitted evidence cannot be verified.
+                Request the deterministic
+                50/50 recovery when
+                submitted evidence cannot
+                be verified.
               </p>
             </div>
           </div>
@@ -2093,8 +2593,13 @@ function ArbiterApp({ onBack }) {
           <input
             className="input"
             placeholder="e.g. 1"
+            inputMode="numeric"
             value={jobId}
-            onChange={(e) => setJobId(e.target.value)}
+            onChange={(e) =>
+              setJobId(
+                e.target.value
+              )
+            }
           />
 
           <label className="field-label">
@@ -2106,14 +2611,18 @@ function ArbiterApp({ onBack }) {
             placeholder="Why is the evidence unavailable?"
             value={recoveryReason}
             onChange={(e) =>
-              setRecoveryReason(e.target.value)
+              setRecoveryReason(
+                e.target.value
+              )
             }
             rows={3}
           />
 
           <button
             className="btn btn-outline btn-full"
-            onClick={handleRecover}
+            onClick={
+              handleRecover
+            }
             disabled={
               !client ||
               pendingAction ===
@@ -2139,10 +2648,13 @@ function ArbiterApp({ onBack }) {
             </div>
 
             <div>
-              <h3>Abandon job</h3>
+              <h3>
+                Abandon job
+              </h3>
+
               <p>
-                Claim abandonment after the required
-                grace period.
+                Claim abandonment after
+                the required grace period.
               </p>
             </div>
           </div>
@@ -2154,8 +2666,13 @@ function ArbiterApp({ onBack }) {
           <input
             className="input"
             placeholder="e.g. 1"
+            inputMode="numeric"
             value={jobId}
-            onChange={(e) => setJobId(e.target.value)}
+            onChange={(e) =>
+              setJobId(
+                e.target.value
+              )
+            }
           />
 
           <label className="field-label">
@@ -2167,24 +2684,31 @@ function ArbiterApp({ onBack }) {
             placeholder="e.g. worker never started"
             value={abandonReason}
             onChange={(e) =>
-              setAbandonReason(e.target.value)
+              setAbandonReason(
+                e.target.value
+              )
             }
             rows={3}
           />
 
           <button
             className="btn btn-outline btn-full"
-            onClick={handleAbandon}
+            onClick={
+              handleAbandon
+            }
             disabled={
               !client ||
-              pendingAction === "abandon_job"
+              pendingAction ===
+                "abandon_job"
             }
           >
-            {pendingAction === "abandon_job" && (
+            {pendingAction ===
+              "abandon_job" && (
               <span className="spinner" />
             )}
 
-            {pendingAction === "abandon_job"
+            {pendingAction ===
+            "abandon_job"
               ? "Claiming…"
               : "Claim Abandoned Job"}
           </button>
@@ -2203,10 +2727,13 @@ function ArbiterApp({ onBack }) {
             </div>
 
             <div>
-              <h3>Transaction history</h3>
+              <h3>
+                Transaction history
+              </h3>
+
               <p>
-                Local transaction history for the connected
-                wallet.
+                Local transaction history
+                for the connected wallet.
               </p>
             </div>
           </div>
@@ -2214,75 +2741,106 @@ function ArbiterApp({ onBack }) {
           {!account && (
             <div className="empty-state">
               <IconWallet />
-              <strong>Connect your wallet</strong>
+
+              <strong>
+                Connect your wallet
+              </strong>
+
               <span>
-                Your transaction history will appear here
-                after connecting.
+                Your transaction history
+                will appear here after
+                connecting.
               </span>
             </div>
           )}
 
-          {account && visibleHistory.length === 0 && (
-            <div className="empty-state">
-              <IconHistory />
-              <strong>No transactions yet</strong>
-              <span>
-                Actions taken by this wallet will appear
-                here.
-              </span>
-            </div>
-          )}
+          {account &&
+            visibleHistory.length ===
+              0 && (
+              <div className="empty-state">
+                <IconHistory />
 
-          {visibleHistory.length > 0 && (
+                <strong>
+                  No transactions yet
+                </strong>
+
+                <span>
+                  Actions taken by this
+                  wallet will appear here.
+                </span>
+              </div>
+            )}
+
+          {visibleHistory.length >
+            0 && (
             <div className="transaction-list">
-              {visibleHistory.map((entry, index) => {
-                const url = txExplorerUrl(entry.tx);
+              {visibleHistory.map(
+                (entry, index) => {
+                  const url =
+                    txExplorerUrl(
+                      entry.tx
+                    );
 
-                return (
-                  <div
-                    className="transaction-row"
-                    key={`${entry.tx}-${index}`}
-                  >
-                    <div className="transaction-icon">
-                      <IconCheckCircle />
-                    </div>
+                  return (
+                    <div
+                      className="transaction-row"
+                      key={`${entry.tx}-${index}`}
+                    >
+                      <div className="transaction-icon">
+                        <IconCheckCircle />
+                      </div>
 
-                    <div className="transaction-main">
-                      <strong>{entry.action}</strong>
+                      <div className="transaction-main">
+                        <strong>
+                          {entry.action}
+                        </strong>
 
-                      <span>
-                        {entry.jobId
-                          ? `Job #${entry.jobId}`
-                          : "Contract transaction"}
-                      </span>
-                    </div>
-
-                    <div className="transaction-right">
-                      {url ? (
-                        <a
-                          href={url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          {entry.tx.slice(0, 8)}…
-                          {entry.tx.slice(-6)}
-                        </a>
-                      ) : (
                         <span>
-                          {entry.tx.slice(0, 8)}…
-                          {entry.tx.slice(-6)}
+                          {entry.jobId
+                            ? `Job #${entry.jobId}`
+                            : "Contract transaction"}
                         </span>
-                      )}
+                      </div>
 
-                      <time>
-                        {new Date(
-                          entry.time
-                        ).toLocaleTimeString()}
-                      </time>
+                      <div className="transaction-right">
+                        {url ? (
+                          <a
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            {entry.tx.slice(
+                              0,
+                              8
+                            )}
+                            …
+                            {entry.tx.slice(
+                              -6
+                            )}
+                          </a>
+                        ) : (
+                          <span>
+                            {entry.tx.slice(
+                              0,
+                              8
+                            )}
+                            …
+                            {entry.tx.slice(
+                              -6
+                            )}
+                          </span>
+                        )}
+
+                        <time>
+                          {new Date(
+                            entry.time
+                          ).toLocaleTimeString()}
+                        </time>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                }
+              )}
             </div>
           )}
         </div>
@@ -2301,29 +2859,41 @@ function ArbiterApp({ onBack }) {
 
             <div>
               <h3>Wallet</h3>
+
               <p>
-                The wallet currently connected to Arbiter.
+                The wallet currently
+                connected to Arbiter.
               </p>
             </div>
           </div>
 
           {!account ? (
             <div className="settings-value">
-              <span>Wallet status</span>
-              <strong>Not connected</strong>
+              <span>
+                Wallet status
+              </span>
+
+              <strong>
+                Not connected
+              </strong>
 
               <button
                 className="btn btn-primary"
-                onClick={handleConnect}
+                onClick={
+                  handleConnect
+                }
                 disabled={
-                  pendingAction === "connect"
+                  pendingAction ===
+                  "connect"
                 }
               >
-                {pendingAction === "connect" && (
+                {pendingAction ===
+                  "connect" && (
                   <span className="spinner" />
                 )}
 
-                {pendingAction === "connect"
+                {pendingAction ===
+                "connect"
                   ? "Connecting…"
                   : "Connect Wallet"}
               </button>
@@ -2335,8 +2905,13 @@ function ArbiterApp({ onBack }) {
               </div>
 
               <div>
-                <span>Connected wallet</span>
-                <strong>{account}</strong>
+                <span>
+                  Connected wallet
+                </span>
+
+                <strong>
+                  {account}
+                </strong>
               </div>
             </div>
           )}
@@ -2350,8 +2925,10 @@ function ArbiterApp({ onBack }) {
 
             <div>
               <h3>Network</h3>
+
               <p>
-                Arbiter requires the configured GenLayer
+                Arbiter requires the
+                configured GenLayer
                 network.
               </p>
             </div>
@@ -2363,26 +2940,35 @@ function ArbiterApp({ onBack }) {
             <span className="network-status-dot" />
 
             <div>
-              <span>Current status</span>
+              <span>
+                Current status
+              </span>
 
               <strong>
-                {networkStatus === "correct"
+                {networkStatus ===
+                "correct"
                   ? REQUIRED_NETWORK_NAME
-                  : networkStatus === "wrong"
+                  : networkStatus ===
+                    "wrong"
                   ? "Wrong network"
-                  : networkStatus === "no-wallet"
+                  : networkStatus ===
+                    "no-wallet"
                   ? "Wallet unavailable"
                   : "Checking…"}
               </strong>
             </div>
           </div>
 
-          {networkStatus === "wrong" && (
+          {networkStatus ===
+            "wrong" && (
             <button
               className="btn btn-outline btn-full"
-              onClick={handleSwitchNetwork}
+              onClick={
+                handleSwitchNetwork
+              }
             >
-              Switch to {REQUIRED_NETWORK_NAME}
+              Switch to{" "}
+              {REQUIRED_NETWORK_NAME}
             </button>
           )}
         </div>
@@ -2394,23 +2980,35 @@ function ArbiterApp({ onBack }) {
             </div>
 
             <div>
-              <h3>Local data</h3>
+              <h3>
+                Local data
+              </h3>
+
               <p>
-                Transaction history is saved locally on this
+                Transaction history is
+                saved locally on this
                 device.
               </p>
             </div>
           </div>
 
           <div className="data-stat">
-            <strong>{visibleHistory.length}</strong>
-            <span>saved transactions for this wallet</span>
+            <strong>
+              {visibleHistory.length}
+            </strong>
+
+            <span>
+              saved transactions for
+              this wallet
+            </span>
           </div>
 
           <p className="settings-note">
-            Transaction history does not represent on-chain
-            state. It is only a convenience record stored in
-            your browser.
+            Transaction history does
+            not represent on-chain
+            state. It is only a
+            convenience record stored
+            in your browser.
           </p>
         </div>
 
@@ -2421,9 +3019,13 @@ function ArbiterApp({ onBack }) {
             </div>
 
             <div>
-              <h3>About Arbiter</h3>
+              <h3>
+                About Arbiter
+              </h3>
+
               <p>
-                Agent-to-agent escrow with GenLayer
+                Agent-to-agent escrow
+                with GenLayer
                 adjudication.
               </p>
             </div>
@@ -2431,18 +3033,33 @@ function ArbiterApp({ onBack }) {
 
           <div className="about-list">
             <div>
-              <span>Architecture</span>
-              <strong>GenLayer</strong>
+              <span>
+                Architecture
+              </span>
+
+              <strong>
+                GenLayer
+              </strong>
             </div>
 
             <div>
-              <span>Escrow asset</span>
-              <strong>GEN</strong>
+              <span>
+                Escrow asset
+              </span>
+
+              <strong>
+                GEN
+              </strong>
             </div>
 
             <div>
-              <span>Job IDs</span>
-              <strong>1-based</strong>
+              <span>
+                Job IDs
+              </span>
+
+              <strong>
+                1-based
+              </strong>
             </div>
           </div>
 
@@ -2528,6 +3145,9 @@ function ArbiterApp({ onBack }) {
     },
   };
 
+  const currentSection =
+    sectionMeta[activeSection];
+
   return (
     <div className="arbiter-root">
       <header className="app-header">
@@ -2535,12 +3155,21 @@ function ArbiterApp({ onBack }) {
           <button
             className="brand-button"
             onClick={goDashboard}
+            type="button"
+            aria-label="Go to Arbiter dashboard"
           >
-            <span className="brand-mark">A</span>
+            <span className="brand-mark">
+              A
+            </span>
 
             <span>
-              <strong>Arbiter</strong>
-              <small>GenLayer escrow</small>
+              <strong>
+                Arbiter
+              </strong>
+
+              <small>
+                GenLayer escrow
+              </small>
             </span>
           </button>
 
@@ -2548,37 +3177,56 @@ function ArbiterApp({ onBack }) {
             {!account ? (
               <button
                 className="btn btn-primary btn-connect"
-                onClick={handleConnect}
+                onClick={
+                  handleConnect
+                }
                 disabled={
-                  pendingAction === "connect"
+                  pendingAction ===
+                  "connect"
                 }
               >
-                {pendingAction === "connect" && (
+                {pendingAction ===
+                  "connect" && (
                   <span className="spinner" />
                 )}
 
                 <IconWallet />
 
-                {pendingAction === "connect"
+                {pendingAction ===
+                "connect"
                   ? "Connecting…"
                   : "Connect"}
               </button>
             ) : (
-              <div className="wallet-box">
+              <div
+                className="wallet-box"
+                title={account}
+              >
                 <span className="wallet-dot" />
+
                 <span className="wallet-address">
-                  {account.slice(0, 6)}…
-                  {account.slice(-4)}
+                  {account.slice(
+                    0,
+                    6
+                  )}
+                  …
+                  {account.slice(
+                    -4
+                  )}
                 </span>
               </div>
             )}
           </div>
         </div>
 
-        {activeSection !== "dashboard" && (
+        {activeSection !==
+          "dashboard" && (
           <button
             className="back-dashboard"
-            onClick={goDashboard}
+            onClick={
+              goDashboard
+            }
+            type="button"
           >
             ← Dashboard
           </button>
@@ -2587,18 +3235,24 @@ function ArbiterApp({ onBack }) {
 
       {renderNetworkNotice()}
 
-      {activeSection === "dashboard" ? (
+      {activeSection ===
+      "dashboard" ? (
         <main className="dashboard">
           <div className="dashboard-intro">
             <div className="dashboard-eyebrow">
               Agent-to-agent commerce
             </div>
 
-            <h1>What do you want to do?</h1>
+            <h1>
+              What do you want
+              to do?
+            </h1>
 
             <p>
-              Manage escrowed jobs, resolve disputes, and
-              track activity from one place.
+              Manage escrowed jobs,
+              resolve disputes, and
+              track activity from one
+              place.
             </p>
           </div>
 
@@ -2612,7 +3266,11 @@ function ArbiterApp({ onBack }) {
                 "Get Job",
                 "Recent Jobs",
               ]}
-              onClick={() => openSection("jobs")}
+              onClick={() =>
+                openSection(
+                  "jobs"
+                )
+              }
               accent
             />
 
@@ -2626,7 +3284,11 @@ function ArbiterApp({ onBack }) {
                 "Dispute",
                 "Appeal",
               ]}
-              onClick={() => openSection("actions")}
+              onClick={() =>
+                openSection(
+                  "actions"
+                )
+              }
             />
 
             <SectionCard
@@ -2640,7 +3302,9 @@ function ArbiterApp({ onBack }) {
                 "Approve",
               ]}
               onClick={() =>
-                openSection("milestones")
+                openSection(
+                  "milestones"
+                )
               }
             />
 
@@ -2654,7 +3318,9 @@ function ArbiterApp({ onBack }) {
                 "Explorer",
               ]}
               onClick={() =>
-                openSection("transactions")
+                openSection(
+                  "transactions"
+                )
               }
             />
 
@@ -2666,7 +3332,11 @@ function ArbiterApp({ onBack }) {
                 "Unavailable Evidence",
                 "Abandon",
               ]}
-              onClick={() => openSection("recovery")}
+              onClick={() =>
+                openSection(
+                  "recovery"
+                )
+              }
             />
 
             <SectionCard
@@ -2678,7 +3348,11 @@ function ArbiterApp({ onBack }) {
                 "Network",
                 "Local Data",
               ]}
-              onClick={() => openSection("settings")}
+              onClick={() =>
+                openSection(
+                  "settings"
+                )
+              }
             />
           </div>
 
@@ -2688,9 +3362,14 @@ function ArbiterApp({ onBack }) {
             </div>
 
             <div>
-              <strong>Built around verifiable outcomes.</strong>
+              <strong>
+                Built around verifiable
+                outcomes.
+              </strong>
+
               <span>
-                GenLayer provides the adjudication layer when
+                GenLayer provides the
+                adjudication layer when
                 agents disagree.
               </span>
             </div>
@@ -2700,20 +3379,21 @@ function ArbiterApp({ onBack }) {
         <main className="section-page">
           <div className="section-page-header">
             <div className="section-page-number">
-              {sectionMeta[activeSection].eyebrow}
+              {currentSection.eyebrow}
             </div>
 
             <div>
               <div className="section-page-kicker">
-                {sectionMeta[activeSection].eyebrow} / 06
+                {currentSection.eyebrow}{" "}
+                / 06
               </div>
 
               <h1>
-                {sectionMeta[activeSection].title}
+                {currentSection.title}
               </h1>
 
               <p>
-                {sectionMeta[activeSection].description}
+                {currentSection.description}
               </p>
             </div>
           </div>
@@ -2725,23 +3405,33 @@ function ArbiterApp({ onBack }) {
       {status && (
         <div
           className={`toast ${
-            status.tone === "error"
+            status.tone ===
+            "error"
               ? "tone-error"
-              : status.tone === "success"
+              : status.tone ===
+                "success"
               ? "tone-success"
               : ""
           }`}
         >
           <span className="toast-mark">
-            {status.tone === "error" ? "!" : "✓"}
+            {status.tone ===
+            "error"
+              ? "!"
+              : "✓"}
           </span>
 
-          <span>{status.text}</span>
+          <span>
+            {status.text}
+          </span>
 
           <button
             type="button"
             className="toast-close"
-            onClick={() => setStatus(null)}
+            onClick={() =>
+              setStatus(null)
+            }
+            aria-label="Close notification"
           >
             ×
           </button>
