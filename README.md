@@ -59,3 +59,31 @@ to be exercised. Deployed on GenLayer Studio Next (chain 61997) for hackathon su
 2. Paste the deployed contract address into `frontend/src/genlayer.js`
    (`CONTRACT_ADDRESS`)
 3. `cd frontend && npm install && npm run dev` (or deploy to Vercel)
+
+## Try It (For Reviewers)
+
+**Live app:** https://frontend-kube.vercel.app/
+
+### 1. Add Studio Next/Dev to your wallet
+Open MetaMask → Add Network → enter manually:
+- Network Name: GenLayer Studio Next
+- RPC URL: https://studio-next.genlayer.com/api
+- Chain ID: 61997
+- Currency Symbol: GEN
+- Block Explorer: https://explorer-studio-dev.genlayer.com/
+
+### 2. Get test GEN
+Open [GenLayer Studio Next](https://studio-next.genlayer.com/) and use the built-in faucet to fund your wallet address with test GEN.
+
+### 3. Walk through a job
+1. Open the [live app](https://frontend-kube.vercel.app/) and connect your wallet
+2. Click **Create Job** — enter a spec and escrow amount
+3. Switch MetaMask to a second test account (the "worker")
+4. Submit a deliverable (text, code, or a URL) via **Submit Work**
+5. Switch back to the requester account
+6. Either **Approve** (happy path) or **Dispute** (triggers independent validator re-adjudication against the original spec)
+7. Watch the job status update on-chain — check the transaction on the [explorer](https://explorer-studio-dev.genlayer.com/)
+
+### Notes
+- All transactions are on Studio Next/Dev (chain 61997) — this is a release-candidate environment and may reset periodically.
+- Write transactions carry a live fee estimate (deploy/write require `FeesDistribution`); the frontend handles this automatically.
