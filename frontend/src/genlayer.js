@@ -106,15 +106,15 @@ export function onAccountsChanged(callback) {
 // estimateTransactionFeesForWrite() and feeds that straight into the real
 // write call, instead of us trying to compute or hardcode fee numbers
 // ourselves.
-async function writeContractWithFees(client, { address, functionName, args, value }) {
+async function writeContractWithFees(client, { address, functionName, args, value, totalMessageFees }) {
   const safeValue = value ?? 0n;
   let estimate;
   try {
-    estimate = await client.estimateTransactionFeesForWrite({
-      address,
-      functionName,
-      args,
-      value: safeValue,
+    estimate = await client.estimateTransactionFees({
+      leaderTimeunitsAllocation: 100n,
+      validatorTimeunitsAllocation: 200n,
+      totalMessageFees: totalMessageFees ?? 0n,
+      rotations: [0n],
     });
   } catch (e) {
     throw new Error(`[FEE ESTIMATE FAILED] ${e.message}`);
@@ -281,6 +281,7 @@ export async function disputeJob(client, jobId, reason) {
     address: CONTRACT_ADDRESS,
     functionName: "dispute",
     args: [Number(jobId), reason],
+    totalMessageFees: 300000000000000n,
   });
 }
 
@@ -289,6 +290,7 @@ export async function appealJob(client, jobId, reason) {
     address: CONTRACT_ADDRESS,
     functionName: "appeal",
     args: [Number(jobId), reason],
+    totalMessageFees: 300000000000000n,
   });
 }
 
@@ -297,6 +299,7 @@ export async function finalizeJob(client, jobId) {
     address: CONTRACT_ADDRESS,
     functionName: "finalize",
     args: [Number(jobId)],
+    totalMessageFees: 300000000000000n,
   });
 }
 
@@ -305,6 +308,7 @@ export async function recoverUnavailableJob(client, jobId, reason) {
     address: CONTRACT_ADDRESS,
     functionName: "recover_unavailable_job",
     args: [Number(jobId), reason],
+    totalMessageFees: 300000000000000n,
   });
 }
 
@@ -313,6 +317,7 @@ export async function abandonJob(client, jobId, reason) {
     address: CONTRACT_ADDRESS,
     functionName: "abandon_job",
     args: [Number(jobId), reason],
+    totalMessageFees: 300000000000000n,
   });
 }
 
@@ -332,8 +337,8 @@ export async function getJobCount(client) {
   });
 }
 
-// Block explorer link for a tx hash. Pointed at the Dev Studio explorer
-// since the contract is deployed there, not on production Studio.
+// Block explorer link for a tx hash. Points at the Studio Next / Studio-dev
+// explorer, matching the contract deployment used for this hackathon.
 export const EXPLORER_BASE_URL = "https://explorer-studio-dev.genlayer.com";
 
 export function txExplorerUrl(txHash) {
