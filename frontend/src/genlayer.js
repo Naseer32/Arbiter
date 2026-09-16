@@ -9,7 +9,7 @@ import { TransactionStatus } from "genlayer-js/types";
 const studioDevChain = {
   ...studionet,
   id: 61997,
-  name: "GenLayer Studio (Dev)",
+  name: "GenLayer Studio (Next)",
   rpcUrls: {
     default: { http: ["https://studio-next.genlayer.com/api"] },
   },
@@ -25,7 +25,7 @@ export const CONTRACT_ADDRESS = "0x81b86Cf6E5a9F789152f3EFEDF8D9d64A4AE5D82";
 // 24 * 60 * 60 * 1000 (the default below) before final submission.
 export const APPEAL_WINDOW_MS = 24 * 60 * 60 * 1000;
 
-// Make sure the wallet is actively on GenLayer Studio Dev before signing --
+// Make sure the wallet is actively on GenLayer Studio Next before signing --
 // genlayer-js's client requires the wallet's current chain to match, or
 // write calls fail with "chainId should be same as current chainId".
 function toHexChainId(id) {
@@ -43,7 +43,7 @@ export async function ensureStudioNetwork() {
     params: [
       {
         chainId: toHexChainId(studioDevChain.id),
-        chainName: studioDevChain.name ?? "GenLayer Studio (Dev)",
+        chainName: studioDevChain.name ?? "GenLayer Studio (Next)",
         nativeCurrency: studioDevChain.nativeCurrency ?? {
           name: "GEN",
           symbol: "GEN",
@@ -64,7 +64,7 @@ export async function connectWallet() {
 }
 
 // Human-readable name + chain id, for network-status messaging in the UI.
-export const REQUIRED_NETWORK_NAME = studioDevChain.name ?? "GenLayer Studio (Dev)";
+export const REQUIRED_NETWORK_NAME = studioDevChain.name ?? "GenLayer Studio (Next)";
 export const REQUIRED_CHAIN_ID_HEX = toHexChainId(studioDevChain.id);
 
 // Returns the wallet's current chain id (hex string, e.g. "0x...") or null
