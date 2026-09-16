@@ -48,9 +48,11 @@ Contract logic (independent leader/validate verdict consensus, digest-pinning,
 abandonment recovery, `emit_transfer`-based payouts) is ported directly from
 the accepted, testnet-verified genlayer-escrow submission's proven patterns.
 Frontend rebuilds its client automatically on wallet account switches.
-Deployed and manually tested on GenLayer Studio (create → submit → approve
-happy path confirmed on-chain); dispute, recovery, and abandonment paths still
-to be exercised. Deployed on GenLayer Studio Next (chain 61997) for hackathon submission.
+Deployed and manually tested on GenLayer Studio Next (chain 61997).
+
+Fresh on-chain tests:
+- Job #3: Create → Submit → Approve → `resolved`, with payment released to the worker.
+- Job #5: Create → Submit → Dispute → GenLayer validator verdict → Appeal → `resolved`, with payment released to the requester.
 
 ## Deploying
 
@@ -70,7 +72,7 @@ Open MetaMask → Add Network → enter manually:
 - RPC URL: https://studio-next.genlayer.com/api
 - Chain ID: 61997
 - Currency Symbol: GEN
-- Block Explorer: https://explorer-studio-dev.genlayer.com/
+- Block Explorer: https://explorer-studio-next.genlayer.com/
 
 ### 2. Get test GEN
 Open [GenLayer Studio Next](https://studio-next.genlayer.com/) and use the built-in faucet to fund your wallet address with test GEN.
@@ -82,7 +84,7 @@ Open [GenLayer Studio Next](https://studio-next.genlayer.com/) and use the built
 4. Submit a deliverable (text, code, or a URL) via **Submit Work**
 5. Switch back to the requester account
 6. Either **Approve** (happy path) or **Dispute** (triggers independent validator re-adjudication against the original spec)
-7. Watch the job status update on-chain — check the transaction on the [explorer](https://explorer-studio-dev.genlayer.com/)
+7. Watch the job status update on-chain — check the transaction on the [explorer](https://explorer-studio-next.genlayer.com/)
 
 ### Optional: Verify Without a Wallet
 
