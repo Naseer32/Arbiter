@@ -10,7 +10,7 @@ const studioDevChain = {
   },
 };
 
-const CONTRACT_ADDRESS = "0x7FE6B2AC00dbe9857E91fEfD3A280C59C1a267b1";
+const CONTRACT_ADDRESS = "0x81b86Cf6E5a9F789152f3EFEDF8D9d64A4AE5D82";
 
 const client = createClient({ chain: studioDevChain });
 

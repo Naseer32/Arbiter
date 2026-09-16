@@ -236,6 +236,8 @@ All ACCEPTED/FINALIZED, SUCCESS, consensus result Accepted.
 ## Test 7 — Milestone Job (Parent/Child Auto-Resolve)
 Tests that a job posted with multiple milestones correctly creates a parent container plus independent child jobs, that each child behaves as a completely normal job with zero special-casing, and that the parent auto-resolves the instant every milestone is done.
 
+> ⚠️ **Superseded** — this test pass was run against the Studio Dev deployment. See the Studio Next section below for the current required-network evidence.
+
 Contract: `0x7FE6B2AC00dbe9857E91fEfD3A280C59C1a267b1`
 
 Requester: `0x53b20B...f12A96`
@@ -365,6 +367,8 @@ with an opaque `execution failed` RPC error. See dated note in
 tests/test_arbiter_payout.py for the full diagnostic trail. All paths above
 remain fully verified via direct manual testing in GenLayer Studio's
 browser UI with live tx-hash evidence.
+> ⚠️ **Superseded** — run against Studio Dev, not the currently required Studio Next network. See below for current evidence.
+
 
 ## Live Test Run — Sept 14, 2026 (GenLayer Studio Dev, chain 61997)
 
