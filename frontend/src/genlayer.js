@@ -106,15 +106,15 @@ export function onAccountsChanged(callback) {
 // estimateTransactionFeesForWrite() and feeds that straight into the real
 // write call, instead of us trying to compute or hardcode fee numbers
 // ourselves.
-async function writeContractWithFees(client, { address, functionName, args, value, totalMessageFees }) {
+async function writeContractWithFees(client, { address, functionName, args, value }) {
   const safeValue = value ?? 0n;
   let estimate;
   try {
-    estimate = await client.estimateTransactionFees({
-      leaderTimeunitsAllocation: 100n,
-      validatorTimeunitsAllocation: 200n,
-      totalMessageFees: totalMessageFees ?? 0n,
-      rotations: [0n],
+    estimate = await client.estimateTransactionFeesForWrite({
+      address,
+      functionName,
+      args,
+      value: safeValue,
     });
   } catch (e) {
     throw new Error(`[FEE ESTIMATE FAILED] ${e.message}`);
