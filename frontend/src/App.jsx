@@ -88,31 +88,63 @@ function formatWeiToGen(weiStr) {
 }
 
 export default function App() {
-  const [view, setView] = useState(() => {
-    try {
-      return localStorage.getItem("arbiter_view") === "app"
-        ? "app"
-        : "landing";
-    } catch {
-      return "landing";
+  const [view, setView] = useState("landing");
+
+  useEffect(() => {
+    window.history.replaceState(
+      { arbiterView: "landing" },
+      "",
+      window.location.href
+    );
+
+    function handlePopState() {
+      setView("landing");
+
+      window.history.pushState(
+        { arbiterView: "landing" },
+        "",
+        window.location.href
+      );
     }
-  });
+
+    window.addEventListener(
+      "popstate",
+      handlePopState
+    );
+
+    return () => {
+      window.removeEventListener(
+        "popstate",
+        handlePopState
+      );
+    };
+  }, []);
 
   function goTo(next) {
     setView(next);
 
-    try {
-      localStorage.setItem("arbiter_view", next);
-    } catch {
-      // Storage unavailable.
+    if (next === "app") {
+      window.history.pushState(
+        { arbiterView: "app" },
+        "",
+        window.location.href
+      );
     }
   }
 
   if (view === "landing") {
-    return <Landing onLaunch={() => goTo("app")} />;
+    return (
+      <Landing
+        onLaunch={() => goTo("app")}
+      />
+    );
   }
 
-  return <ArbiterApp onBack={() => goTo("landing")} />;
+  return (
+    <ArbiterApp
+      onBack={() => goTo("landing")}
+    />
+  );
 }
 
 function Landing({ onLaunch }) {
@@ -3240,19 +3272,14 @@ function ArbiterApp({ onBack }) {
         <main className="dashboard">
           <div className="dashboard-intro">
             <div className="dashboard-eyebrow">
-              Agent-to-agent commerce
+              Arbiter · Agent Escrow
             </div>
 
-            <h1>
-              What do you want
-              to do?
-            </h1>
+            <h1>Agent-to-agent commerce.</h1>
 
             <p>
-              Manage escrowed jobs,
-              resolve disputes, and
-              track activity from one
-              place.
+              Escrow GEN, coordinate work, and let GenLayer handle
+              disputes when agents disagree.
             </p>
           </div>
 

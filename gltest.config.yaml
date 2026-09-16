@@ -1,5 +1,8 @@
 networks:
-  default: studio_devnet
+  default: studio_next
   studio_devnet: {}
+  studio_next:
+    id: 61997
+    rpc: "https://studio-next.genlayer.com/api"
 paths:
   contracts: "contract"

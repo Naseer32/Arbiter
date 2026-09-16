@@ -1,5 +1,6 @@
 {
   "dependencies": {
-    "genlayer-js": "^1.1.8"
+    "@genlayer/transaction-kit": "^0.1.0-rc.2",
+    "genlayer-js": "^2.0.0-rc.1"
   }
 }
