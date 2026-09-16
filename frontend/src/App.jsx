@@ -570,6 +570,15 @@ function ArbiterApp({ onBack }) {
         relatedJobId
       );
 
+      if (actionName === "submit_work") {
+        setDeliverable("");
+        setIsUrl(true);
+      }
+
+      if (actionName === "abandon_job") {
+        setAbandonReason("");
+      }
+
       if (
         relatedJobId !== undefined &&
         relatedJobId !== ""
@@ -665,6 +674,10 @@ function ArbiterApp({ onBack }) {
       if (hasId) {
         setJobId(String(newJobId));
       }
+
+      setWorker("");
+      setSpec("");
+      setAmount("");
     } catch (e) {
       setStatus({
         text: `create_job failed: ${e.message}`,
@@ -745,6 +758,8 @@ function ArbiterApp({ onBack }) {
         "Dispute submitted. Verdict pending.",
         id
       );
+
+      setReason("");
     });
   }
 
@@ -770,6 +785,8 @@ function ArbiterApp({ onBack }) {
         "Appeal submitted for independent re-adjudication.",
         id
       );
+
+      setAppealReason("");
     });
   }
 
@@ -807,6 +824,8 @@ function ArbiterApp({ onBack }) {
         "Recovery requested. 50/50 split.",
         id
       );
+
+      setRecoveryReason("");
     });
   }
 
@@ -833,6 +852,8 @@ function ArbiterApp({ onBack }) {
         "Abandonment claim submitted.",
         id
       );
+
+      setAbandonReason("");
     });
   }
 
