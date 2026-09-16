@@ -88,18 +88,34 @@ function formatWeiToGen(weiStr) {
 }
 
 export default function App() {
-  const [view, setView] = useState("landing");
+  const [view, setView] = useState(() => {
+    const state = window.history.state;
+
+    if (state?.arbiterView === "app") {
+      return "app";
+    }
+
+    return "landing";
+  });
 
   useEffect(() => {
-    window.history.replaceState(
-      { arbiterView: "landing" },
-      "",
-      window.location.href
-    );
+    const currentState = window.history.state;
 
-    function handlePopState() {
+    if (!currentState?.arbiterView) {
+      window.history.replaceState(
+        { arbiterView: view },
+        "",
+        window.location.href
+      );
+    }
+
+    function handlePopState(event) {
+      if (event.state?.arbiterView === "landing") {
+        setView("landing");
+        return;
+      }
+
       setView("landing");
-
       window.history.pushState(
         { arbiterView: "landing" },
         "",
@@ -107,16 +123,10 @@ export default function App() {
       );
     }
 
-    window.addEventListener(
-      "popstate",
-      handlePopState
-    );
+    window.addEventListener("popstate", handlePopState);
 
     return () => {
-      window.removeEventListener(
-        "popstate",
-        handlePopState
-      );
+      window.removeEventListener("popstate", handlePopState);
     };
   }, []);
 
