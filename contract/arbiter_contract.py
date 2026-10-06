@@ -53,6 +53,7 @@ import hashlib
 
 ABANDONMENT_PERIOD = datetime.timedelta(days=7)
 APPEAL_WINDOW = datetime.timedelta(hours=24)
+MAX_REVISIONS = 2
 
 
 def _digest(content: str) -> str:
@@ -88,6 +89,9 @@ class Job:
     milestone_index: u256
     is_milestone_parent: bool
     milestone_count: u256
+    revision_count: u256
+    revision_feedback: str
+    last_activity_at: datetime.datetime
 
 
 class Arbiter(gl.contract.Contract):
@@ -381,6 +385,9 @@ Respond with ONLY a JSON object:
             milestone_index=u256(0),
             is_milestone_parent=False,
             milestone_count=u256(0),
+            revision_count=u256(0),
+            revision_feedback="",
+            last_activity_at=now,
         )
 
         self.jobs.append(job)
@@ -462,6 +469,9 @@ Respond with ONLY a JSON object:
             milestone_index=u256(0),
             is_milestone_parent=True,
             milestone_count=u256(len(specs)),
+            revision_count=u256(0),
+            revision_feedback="",
+            last_activity_at=now,
         )
 
         self.jobs.append(parent)
@@ -489,6 +499,9 @@ Respond with ONLY a JSON object:
                 milestone_index=u256(i + 1),
                 is_milestone_parent=False,
                 milestone_count=u256(0),
+                revision_count=u256(0),
+                revision_feedback="",
+                last_activity_at=now,
             )
             self.jobs.append(child)
 
@@ -704,7 +717,20 @@ Respond with ONLY a JSON object:
 
         # Deliberately different method from the original holistic
         # dispute-time judgment -- see _run_checklist_adjudication.
-        final_verdict = self._run_checklist_adjudication(job.spec, job.deliverable)
+        appeal_content = job.deliverable
+
+        if job.deliverable_is_url:
+            pinned = self._fetch_pinned_content(job)
+
+            if pinned is None:
+                # Evidence gone or drifted: fall back to the deterministic
+                # 50/50 recovery path instead of judging a bare URL string.
+                job.status = "evidence_unavailable"
+                return
+
+            appeal_content = pinned
+
+        final_verdict = self._run_checklist_adjudication(job.spec, appeal_content)
 
         self._settle(job, final_verdict)
 
@@ -787,7 +813,7 @@ Respond with ONLY a JSON object:
             raise gl.vm.UserError("recovery has already been used")
 
         current_status = job.status
-        reference_time = job.created_at if current_status == "open" else job.submitted_at
+        reference_time = job.last_activity_at if current_status == "open" else job.submitted_at
         elapsed = datetime.datetime.now() - reference_time
 
         if elapsed < ABANDONMENT_PERIOD:
@@ -811,7 +837,192 @@ Respond with ONLY a JSON object:
 
         self._maybe_resolve_parent(job)
 
+    # ---------- v2: pinned content re-fetch (used by appeal) ----------
+
+    def _fetch_pinned_content(self, job: Job):
+        """
+        Re-fetches a URL deliverable and checks it against the digest
+        pinned at submit_work time. Returns the page content, or None if
+        the page is unreachable or its content has drifted.
+        """
+        url = job.deliverable.strip()
+        expected = job.deliverable_digest
+
+        def fetch_page():
+            try:
+                rendered = gl.nondet.web.render(url, mode="text")
+                content = rendered[:6000]
+                return {"available": True, "content": content, "digest": _digest(content)}
+            except Exception:
+                return {"available": False, "content": "", "digest": ""}
+
+        def validate_fetch(leader_result) -> bool:
+            if not isinstance(leader_result, gl.vm.Return):
+                return False
+            data = leader_result.calldata
+            if not isinstance(data, dict):
+                return False
+            leader_available = data.get("available")
+            leader_digest = data.get("digest")
+            if not isinstance(leader_available, bool):
+                return False
+            try:
+                own_result = fetch_page()
+            except Exception:
+                return leader_available is False
+            if not isinstance(own_result, dict):
+                return False
+            return (
+                own_result.get("available") == leader_available
+                and own_result.get("digest") == leader_digest
+            )
+
+        result = gl.vm.run_nondet_default(fetch_page, validate_fetch)
+
+        if not result["available"] or not expected or result["digest"] != expected:
+            return None
+
+        return result["content"]
+
+    # ---------- v2: Requester asks for a revision instead of disputing ----------
+
+    @gl.public.write
+    def request_revision(self, job_id: u256, feedback: str) -> None:
+        """
+        Cheaper, friendlier alternative to dispute(): the requester sends
+        the job back to the worker with written feedback. The job returns
+        to "open" so the worker can submit_work again. Capped at
+        MAX_REVISIONS rounds per job; after that only approve / dispute
+        remain. Fully deterministic -- no LLM involved.
+        """
+        job = self._get_job(job_id)
+
+        if gl.message.sender_address != job.requester:
+            raise gl.vm.UserError("only the requester can request a revision")
+
+        if job.status != "submitted":
+            raise gl.vm.UserError(f"nothing to revise (status: {job.status})")
+
+        if int(job.revision_count) >= MAX_REVISIONS:
+            raise gl.vm.UserError(
+                f"revision limit reached ({MAX_REVISIONS}); approve or dispute instead"
+            )
+
+        if not feedback.strip():
+            raise gl.vm.UserError("revision feedback cannot be empty")
+
+        if len(feedback) > 2000:
+            raise gl.vm.UserError("revision feedback is too long")
+
+        job.revision_count = u256(int(job.revision_count) + 1)
+        job.revision_feedback = feedback
+        job.deliverable = ""
+        job.deliverable_is_url = False
+        job.deliverable_digest = ""
+        job.status = "open"
+        job.last_activity_at = datetime.datetime.now()
+
     # ---------- Views ----------
+
+    @gl.public.view
+    def version(self) -> str:
+        return "arbiter-v2"
+
+    @gl.public.view
+    def get_reputation(self, account: str) -> dict:
+        """
+        On-chain track record for any address, derived from job history
+        (no extra storage). Milestone parent containers are skipped so
+        each payout is counted once.
+        """
+        addr = Address(account)
+
+        worker_resolved = 0
+        worker_paid = 0
+        requester_resolved = 0
+        requester_refunded = 0
+        disputes_involved = 0
+        appeals_filed_against = 0
+
+        for j in self.jobs:
+            if j.is_milestone_parent:
+                continue
+
+            is_worker = j.worker == addr
+            is_requester = j.requester == addr
+
+            if not is_worker and not is_requester:
+                continue
+
+            if j.dispute_reason != "":
+                disputes_involved += 1
+
+            if j.appeal_used:
+                appeals_filed_against += 1
+
+            if j.status != "resolved":
+                continue
+
+            if is_worker:
+                worker_resolved += 1
+                if j.payout_to == "worker":
+                    worker_paid += 1
+
+            if is_requester:
+                requester_resolved += 1
+                if j.payout_to == "requester":
+                    requester_refunded += 1
+
+        success_bps = 0
+        if worker_resolved > 0:
+            success_bps = (worker_paid * 10000) // worker_resolved
+
+        return {
+            "worker_resolved": worker_resolved,
+            "worker_paid": worker_paid,
+            "worker_success_bps": success_bps,
+            "requester_resolved": requester_resolved,
+            "requester_refunded": requester_refunded,
+            "disputes_involved": disputes_involved,
+            "appeals_involved": appeals_filed_against,
+        }
+
+    @gl.public.view
+    def get_stats(self) -> dict:
+        """Protocol-wide counters for dashboards and reviewers."""
+        total = 0
+        resolved = 0
+        disputed = 0
+        appealed = 0
+        revisions = 0
+        volume = 0
+
+        for j in self.jobs:
+            if j.is_milestone_parent:
+                continue
+
+            total += 1
+            revisions += int(j.revision_count)
+
+            if j.dispute_reason != "":
+                disputed += 1
+
+            if j.appeal_used:
+                appealed += 1
+
+            if j.status == "resolved":
+                resolved += 1
+                volume += int(j.amount)
+
+        return {
+            "jobs": total,
+            "resolved": resolved,
+            "disputed": disputed,
+            "appealed": appealed,
+            "revisions": revisions,
+            "resolved_volume_wei": str(volume),
+        }
+
 
     @gl.public.view
     def get_job(self, job_id: u256) -> dict:
@@ -838,6 +1049,9 @@ Respond with ONLY a JSON object:
             "milestone_index": str(job.milestone_index),
             "is_milestone_parent": job.is_milestone_parent,
             "milestone_count": str(job.milestone_count),
+            "revision_count": str(job.revision_count),
+            "revision_feedback": job.revision_feedback,
+            "last_activity_at": job.last_activity_at.isoformat(),
         }
 
     @gl.public.view
