@@ -1,5 +1,5 @@
 import { createClient } from "genlayer-js";
-import { studionet } from "genlayer-js/chains";
+import { studionet, testnetBradbury } from "genlayer-js/chains";
 import { TransactionStatus } from "genlayer-js/types";
 
 // Deployed on GenLayer Studio DEV (studio-dev.genlayer.com), chain id 61997 --
@@ -15,7 +15,13 @@ const studioDevChain = {
   },
 };
 
-export const CONTRACT_ADDRESS = "0x81b86Cf6E5a9F789152f3EFEDF8D9d64A4AE5D82";
+const NETWORK = import.meta.env.VITE_NETWORK || "studio";
+const activeChain = NETWORK === "bradbury" ? testnetBradbury : studioDevChain;
+
+export const CONTRACT_ADDRESS =
+  NETWORK === "bradbury"
+    ? "0xee9AaBa728bF4D057b3578E2519952d9eA92b80B"
+    : "0x81b86Cf6E5a9F789152f3EFEDF8D9d64A4AE5D82";
 
 // Must match APPEAL_WINDOW in arbiter_contract.py exactly -- this is a
 // display-only value (for showing an estimated deadline in the UI) and
@@ -35,16 +41,16 @@ function toHexChainId(id) {
 export async function ensureStudioNetwork() {
   if (!window.ethereum) throw new Error("No injected wallet found (e.g. MetaMask).");
   const rpcUrl =
-    studioDevChain.rpcUrls?.default?.http?.[0] ?? studioDevChain.rpcUrls?.[0];
-  const explorerUrl = studioDevChain.blockExplorers?.default?.url;
+    activeChain.rpcUrls?.default?.http?.[0] ?? activeChain.rpcUrls?.[0];
+  const explorerUrl = activeChain.blockExplorers?.default?.url;
 
   await window.ethereum.request({
     method: "wallet_addEthereumChain",
     params: [
       {
-        chainId: toHexChainId(studioDevChain.id),
-        chainName: studioDevChain.name ?? "GenLayer Studio (Next)",
-        nativeCurrency: studioDevChain.nativeCurrency ?? {
+        chainId: toHexChainId(activeChain.id),
+        chainName: activeChain.name ?? "GenLayer Studio (Next)",
+        nativeCurrency: activeChain.nativeCurrency ?? {
           name: "GEN",
           symbol: "GEN",
           decimals: 18,
@@ -64,8 +70,8 @@ export async function connectWallet() {
 }
 
 // Human-readable name + chain id, for network-status messaging in the UI.
-export const REQUIRED_NETWORK_NAME = studioDevChain.name ?? "GenLayer Studio (Next)";
-export const REQUIRED_CHAIN_ID_HEX = toHexChainId(studioDevChain.id);
+export const REQUIRED_NETWORK_NAME = activeChain.name ?? "GenLayer Studio (Next)";
+export const REQUIRED_CHAIN_ID_HEX = toHexChainId(activeChain.id);
 
 // Returns the wallet's current chain id (hex string, e.g. "0x...") or null
 // if no wallet is present. Used to show clear "wrong network" guidance
@@ -84,7 +90,7 @@ export function onChainChanged(callback) {
 
 export function getClient(account) {
   return createClient({
-    chain: studioDevChain,
+    chain: activeChain,
     account,
   });
 }
