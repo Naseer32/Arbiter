@@ -114,9 +114,9 @@ export function onAccountsChanged(callback) {
 // ourselves.
 async function writeContractWithFees(client, { address, functionName, args, value }) {
   const safeValue = value ?? 0n;
-  let estimate;
+  let estimate = null;
   try {
-    estimate = await client.estimateTransactionFeesForWrite({
+    if (typeof client.estimateTransactionFeesForWrite === "function") estimate = await client.estimateTransactionFeesForWrite({
       address,
       functionName,
       args,
@@ -133,11 +133,11 @@ async function writeContractWithFees(client, { address, functionName, args, valu
       functionName,
       args,
       value: safeValue,
-      fees: {
+      ...(estimate ? { fees: {
         distribution: estimate.distribution,
         feeValue: estimate.feeValue,
         messageAllocations: estimate.messageAllocations,
-      },
+      } } : {}),
     });
   } catch (e) {
     throw new Error(`[WRITE FAILED] ${e.message}`);
