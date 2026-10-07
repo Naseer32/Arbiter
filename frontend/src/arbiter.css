@@ -2371,3 +2371,8 @@ a:focus-visible {
     font-size: 38px;
   }
 }
+
+.tx-line { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.tx-link { word-break: break-all; overflow-wrap: anywhere; text-decoration: underline; color: inherit; user-select: all; }
+.tx-copy { padding: 2px 8px; font-size: 12px; border-radius: 6px; border: 1px solid currentColor; background: transparent; color: inherit; cursor: pointer; }
+.toast { max-width: min(92vw, 560px); }

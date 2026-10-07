@@ -345,7 +345,7 @@ export async function getJobCount(client) {
 
 // Block explorer link for a tx hash. Points at the Studio Next / Studio-dev
 // explorer, matching the contract deployment used for this hackathon.
-export const EXPLORER_BASE_URL = "https://explorer-studio-dev.genlayer.com";
+export const EXPLORER_BASE_URL = activeChain.blockExplorers?.default?.url || "https://explorer-studio-dev.genlayer.com";
 
 export function txExplorerUrl(txHash) {
   if (!EXPLORER_BASE_URL || !txHash) return null;

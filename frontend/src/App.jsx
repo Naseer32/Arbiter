@@ -3480,7 +3480,7 @@ function ArbiterApp({ onBack }) {
           </span>
 
           <span>
-            {status.text}
+            <StatusText text={status.text} />
           </span>
 
           <button
@@ -3496,5 +3496,35 @@ function ArbiterApp({ onBack }) {
         </div>
       )}
     </div>
+  );
+}
+
+function StatusText({ text }) {
+  const m = String(text).match(/^([\s\S]*?)\s*tx:\s*(0x[0-9a-fA-F]{64})([\s\S]*)$/);
+  if (!m) return <>{text}</>;
+  const [, before, hash, after] = m;
+  const url = txExplorerUrl(hash);
+  return (
+    <span className="tx-status">
+      {before}{" "}
+      <span className="tx-line">
+        tx:{" "}
+        {url ? (
+          <a href={url} target="_blank" rel="noopener noreferrer" className="tx-link">
+            {hash}
+          </a>
+        ) : (
+          <span className="tx-link">{hash}</span>
+        )}
+        <button
+          type="button"
+          className="tx-copy"
+          onClick={() => navigator.clipboard?.writeText(hash)}
+        >
+          Copy
+        </button>
+      </span>
+      {after}
+    </span>
   );
 }
