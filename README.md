@@ -78,7 +78,7 @@ Open MetaMask → Add Network → enter manually:
 Open [GenLayer Studio Next](https://studio-next.genlayer.com/) and use the built-in faucet to fund your wallet address with test GEN.
 
 ### 3. Walk through a job
-1. Open the [live app](https://frontend-kube.vercel.app/) and connect your wallet
+1. Open the [live app](https://arbiter-v2.vercel.app/) and connect your wallet
 2. Click **Create Job** — enter a spec and escrow amount
 3. Switch MetaMask to a second test account (the "worker")
 4. Submit a deliverable (text, code, or a URL) via **Submit Work**
