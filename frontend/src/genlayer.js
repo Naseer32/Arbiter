@@ -15,7 +15,8 @@ const studioDevChain = {
   },
 };
 
-const NETWORK = import.meta.env.VITE_NETWORK || "studio";
+const storedNetwork = (() => { try { return localStorage.getItem("arbiter_network"); } catch { return null; } })();
+export const NETWORK = storedNetwork === "bradbury" || storedNetwork === "studio" ? storedNetwork : (import.meta.env.VITE_NETWORK || "studio");
 const activeChain = NETWORK === "bradbury" ? testnetBradbury : studioDevChain;
 
 export const CONTRACT_ADDRESS =
@@ -350,4 +351,13 @@ export const EXPLORER_BASE_URL = activeChain.blockExplorers?.default?.url || "ht
 export function txExplorerUrl(txHash) {
   if (!EXPLORER_BASE_URL || !txHash) return null;
   return `${EXPLORER_BASE_URL.replace(/\/$/, "")}/tx/${txHash}`;
+}
+
+export function switchNetwork(next) {
+  if (next !== "bradbury" && next !== "studio") return;
+  if (next === NETWORK) return;
+  try {
+    localStorage.setItem("arbiter_network", next);
+  } catch {}
+  window.location.reload();
 }

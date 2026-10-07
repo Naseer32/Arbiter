@@ -6,6 +6,8 @@ import {
   onChainChanged,
   getCurrentChainIdHex,
   REQUIRED_NETWORK_NAME,
+  NETWORK,
+  switchNetwork,
   REQUIRED_CHAIN_ID_HEX,
   ensureStudioNetwork,
   createJob,
@@ -3237,6 +3239,7 @@ function ArbiterApp({ onBack }) {
           </button>
 
           <div className="header-wallet">
+<select className="network-select" value={NETWORK} onChange={(e) => switchNetwork(e.target.value)} aria-label="Network"><option value="studio">Studio Dev</option><option value="bradbury">Bradbury</option></select>
             {!account ? (
               <button
                 className="btn btn-primary btn-connect"

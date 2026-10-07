@@ -2376,3 +2376,6 @@ a:focus-visible {
 .tx-link { word-break: break-all; overflow-wrap: anywhere; text-decoration: underline; color: inherit; user-select: all; }
 .tx-copy { padding: 2px 8px; font-size: 12px; border-radius: 6px; border: 1px solid currentColor; background: transparent; color: inherit; cursor: pointer; }
 .toast { max-width: min(92vw, 560px); }
+
+.network-select { padding: 6px 10px; font-size: 13px; border-radius: 8px; border: 1px solid currentColor; background: transparent; color: inherit; cursor: pointer; margin-right: 8px; }
+.network-select option { color: #111; }
