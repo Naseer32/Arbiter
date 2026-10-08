@@ -129,6 +129,7 @@ Live app: `https://arbiter-v2.vercel.app/`
 
 On-chain verification (fresh jobs on v2):
 - Live stats from `get_stats()`: 4 jobs created, 2 resolved through Create → Submit → Approve (0.2 GEN released to workers)
+- Job 4 (Bradbury): Create → Submit → Dispute (validators ruled for requester) → Appeal → `resolved`, paid to requester. Dispute tx `0x4cdf9739f3e1a347ff8c3497d670852b4a91ca741efecc71c20553c755631e99`, appeal tx `0x92e505572cff9486717e9d4475d841084d6b434cf07333b8f490fc3caca6ddc7`
 
 ## Roadmap
 
