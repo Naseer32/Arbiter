@@ -13,6 +13,7 @@ import {
   createJob,
   submitWork,
   approveJob,
+  requestRevision,
   disputeJob,
   appealJob,
   finalizeJob,
@@ -746,6 +747,25 @@ function ArbiterApp({ onBack }) {
         "approve",
         () => approveJob(client, id),
         "Approved, worker paid.",
+        id
+      );
+    });
+  }
+
+  function handleRequestRevision() {
+    withJobId((id) => {
+      if (!reason.trim()) {
+        setStatus({
+          text: "Revision feedback can't be empty.",
+          tone: "error",
+        });
+        return;
+      }
+
+      run(
+        "revision",
+        () => requestRevision(client, id, reason),
+        "Revision requested. Job returned to the worker.",
         id
       );
     });
@@ -2072,6 +2092,17 @@ function ArbiterApp({ onBack }) {
               }
               rows={3}
             />
+
+            <button
+              className="btn btn-full"
+              style={{ marginTop: "8px" }}
+              onClick={handleRequestRevision}
+              disabled={!client || pendingAction === "revision"}
+            >
+              {pendingAction === "revision"
+                ? "Requesting…"
+                : "Request Revision (max 2)"}
+            </button>
 
             <button
               className="btn btn-danger btn-full"

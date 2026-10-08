@@ -289,6 +289,14 @@ export async function approveJob(client, jobId) {
   });
 }
 
+export async function requestRevision(client, jobId, feedback) {
+  return writeContractWithFees(client, {
+    address: CONTRACT_ADDRESS,
+    functionName: "request_revision",
+    args: [Number(jobId), feedback],
+  });
+}
+
 export async function disputeJob(client, jobId, reason) {
   return writeContractWithFees(client, {
     address: CONTRACT_ADDRESS,
