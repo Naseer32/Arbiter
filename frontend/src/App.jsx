@@ -2094,7 +2094,7 @@ function ArbiterApp({ onBack }) {
             />
 
             <button
-              className="btn btn-full"
+              className="btn btn-outline btn-full"
               style={{ marginTop: "8px" }}
               onClick={handleRequestRevision}
               disabled={!client || pendingAction === "revision"}
