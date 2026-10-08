@@ -339,6 +339,7 @@ function ArbiterApp({ onBack }) {
   const [deliverable, setDeliverable] = useState("");
   const [isUrl, setIsUrl] = useState(true);
   const [reason, setReason] = useState("");
+  const [revisionFeedback, setRevisionFeedback] = useState("");
   const [appealReason, setAppealReason] = useState("");
   const [recoveryReason, setRecoveryReason] = useState("");
   const [abandonReason, setAbandonReason] = useState("");
@@ -754,7 +755,7 @@ function ArbiterApp({ onBack }) {
 
   function handleRequestRevision() {
     withJobId((id) => {
-      if (!reason.trim()) {
+      if (!revisionFeedback.trim()) {
         setStatus({
           text: "Revision feedback can't be empty.",
           tone: "error",
@@ -764,7 +765,7 @@ function ArbiterApp({ onBack }) {
 
       run(
         "revision",
-        () => requestRevision(client, id, reason),
+        () => requestRevision(client, id, revisionFeedback),
         "Revision requested. Job returned to the worker.",
         id
       );
@@ -2066,6 +2067,34 @@ function ArbiterApp({ onBack }) {
           </div>
 
           <div className="panel action-panel">
+              <div className="action-panel-title">Request Revision</div>
+
+              <p>
+                Send the work back to the worker with feedback instead of
+                disputing it (max 2 rounds).
+              </p>
+
+              <textarea
+                className="textarea"
+                placeholder="What should the worker change?"
+                value={revisionFeedback}
+                onChange={(e) => setRevisionFeedback(e.target.value)}
+                rows={3}
+              />
+
+              <button
+                className="btn btn-outline btn-full action-bottom"
+                onClick={handleRequestRevision}
+                disabled={!client || pendingAction === "revision"}
+              >
+                {pendingAction === "revision" && <span className="spinner" />}
+                {pendingAction === "revision"
+                  ? "Requesting…"
+                  : "Request Revision (max 2)"}
+              </button>
+            </div>
+
+            <div className="panel action-panel">
             <div className="action-panel-icon danger">
               <IconScale />
             </div>
@@ -2092,17 +2121,6 @@ function ArbiterApp({ onBack }) {
               }
               rows={3}
             />
-
-            <button
-              className="btn btn-outline btn-full"
-              style={{ marginTop: "8px" }}
-              onClick={handleRequestRevision}
-              disabled={!client || pendingAction === "revision"}
-            >
-              {pendingAction === "revision"
-                ? "Requesting…"
-                : "Request Revision (max 2)"}
-            </button>
 
             <button
               className="btn btn-danger btn-full"
