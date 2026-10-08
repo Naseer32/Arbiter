@@ -130,6 +130,7 @@ Live app: `https://arbiter-v2.vercel.app/`
 On-chain verification (fresh jobs on v2):
 - Live stats from `get_stats()`: 6 jobs plus 1 milestone parent (2 milestones) on Bradbury: approve, dispute → appeal, 50/50 recovery and milestone rollup all verified live
 - Job 4 (Bradbury): Create → Submit → Dispute (validators ruled for requester) → Appeal → `resolved`, paid to requester. Dispute tx `0x4cdf9739f3e1a347ff8c3497d670852b4a91ca741efecc71c20553c755631e99`, appeal tx `0x92e505572cff9486717e9d4475d841084d6b434cf07333b8f490fc3caca6ddc7`
+- Revision round (Bradbury, job 9): requester sent feedback via `request_revision`, job returned to `open` with `revision_count` 1. tx `0xd672a4b59d777b524e9485bb78d792ab8f566c5c81fe72f95443c3541582d2ea`
 
 ## Roadmap
 
