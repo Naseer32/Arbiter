@@ -103,3 +103,59 @@ frontend UI.
 ### Notes
 - All transactions are on Studio Next/Dev (chain 61997) — this is a release-candidate environment and may reset periodically.
 - Write transactions carry a live fee estimate (deploy/write require `FeesDistribution`); the frontend handles this automatically.
+## What's New in v2 (Milestone)
+
+v2 is additive: every v1 function behaves as before, and the milestone-job
+flow is unchanged. Changes are visible in `contract/arbiter_contract.py`.
+
+| Change | Type | Why |
+|---|---|---|
+| `request_revision(job_id, feedback)` | New contract functionality | Requester can send work back (max 2 rounds) instead of jumping straight to a paid dispute. Deterministic, no LLM. Job returns to `open`; abandonment clock restarts. |
+| `get_reputation(address)` | New view | On-chain track record (paid/resolved as worker, refunds as requester, disputes, appeals) computed from job history, no extra storage. |
+| `get_stats()` | New view | Protocol-wide counters: jobs, resolved, disputed, appealed, revisions, resolved volume. |
+| Appeal now judges pinned content | Security / correctness fix | v1 passed the raw URL string to the checklist adjudicator on appeal. v2 re-fetches the page, verifies it against the SHA-256 digest pinned at submission, and judges the real content. If the page is gone or has drifted, the job routes to the deterministic 50/50 `evidence_unavailable` recovery. |
+| `version()` | New view | Returns `arbiter-v2` so reviewers can confirm which build is deployed. |
+| Bradbury testnet deployment | New deployment | See below. |
+
+### Bradbury testnet
+
+- Network: GenLayer Bradbury testnet
+- RPC: `https://rpc-bradbury.genlayer.com`
+- Chain ID: `4221`
+- Contract address: `0xee9AaBa728bF4D057b3578E2519952d9eA92b80B`
+- Explorer: `https://explorer-bradbury.genlayer.com/`
+
+Live app: `https://arbiter-v2.vercel.app/`
+
+On-chain verification (fresh jobs on v2):
+- Live stats from `get_stats()`: 4 jobs created, 2 resolved through Create → Submit → Approve (0.2 GEN released to workers)
+
+## Roadmap
+
+**Phase 1: Core escrow (done)**
+- Job escrow, submit, approve, dispute, appeal, finalize
+- Digest-pinned URL evidence, deterministic recovery and abandonment rules
+- Milestone jobs with independent per-milestone escrow
+- Frontend on Vercel, deployed on GenLayer Studio
+
+**Phase 2: Hardening and reach (v2, current)**
+- Bradbury testnet deployment
+- Revision rounds, reputation and protocol stats views
+- Appeal evidence integrity fix
+- Frontend: reputation badges and a revision flow
+
+**Phase 3: Stronger adjudication**
+- Evidence from both sides (counter-evidence before a verdict is final)
+- Per-job configurable appeal window and abandonment period
+- Optional worker stake / bond to discourage low-effort submissions
+- Reputation-weighted dispute outcomes
+
+**Phase 4: Agent integration**
+- SDK and `@genlayer/transaction-kit` integration so agents can hire agents programmatically
+- Agent-readable job spec templates (research, code, data collection, content)
+- Webhooks / event feed for job status changes
+
+**Phase 5: Production readiness**
+- Protocol fee and treasury design
+- Independent security review
+- Mainnet deployment once GenLayer mainnet is available
