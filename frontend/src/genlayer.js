@@ -155,6 +155,8 @@ async function writeContractWithFees(client, { address, functionName, args, valu
     receipt = await client.waitForTransactionReceipt({
       hash: tx,
       status: TransactionStatus.ACCEPTED,
+      interval: 5000,
+      retries: 240,
     });
   } catch (e) {
     throw new Error(`[CONFIRMATION FAILED] ${functionName} tx ${tx} did not confirm: ${e.message}`);
@@ -190,6 +192,8 @@ export async function createJob(client, worker, spec, amountWei) {
     await client.waitForTransactionReceipt({
       hash: tx,
       status: TransactionStatus.ACCEPTED,
+      interval: 5000,
+      retries: 240,
     });
     const count = await client.readContract({
       address: CONTRACT_ADDRESS,
@@ -230,6 +234,8 @@ export async function createMilestoneJob(client, worker, specs, amountsWei) {
     await client.waitForTransactionReceipt({
       hash: tx,
       status: TransactionStatus.ACCEPTED,
+      interval: 5000,
+      retries: 240,
     });
     const count = await client.readContract({
       address: CONTRACT_ADDRESS,
