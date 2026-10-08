@@ -559,6 +559,14 @@ function ArbiterApp({ onBack }) {
     setStatus(null);
 
     try {
+        if (window.ethereum) {
+          const [live] = await window.ethereum.request({ method: "eth_accounts" });
+          if (live && account && live.toLowerCase() !== account.toLowerCase()) {
+            setAccount(live);
+            setClient(getClient(live));
+            throw new Error("Wallet account changed. Account updated, please retry the action.");
+          }
+        }
       const tx = await fn();
 
       setStatus({
